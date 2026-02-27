@@ -12,6 +12,7 @@ if (!existsSync(distDir)) {
 // Copy extension files
 const extensionFiles = [
   "manifest.json",
+  "logo.png",
   "extension/background.js",
   "extension/content.js",
 ];

@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "Focus Dashboard",
-  "version": "0.1.0",
-  "description": "Turn New Tab into a deep work dashboard with Pomodoro, weather ambiance, music, to-dos, and AI blocking.",
+  "name": "MindGard",
+  "version": "1.0.0",
+  "description": "Transform your New Tab into a space for absolute focus with Pomodoro, relaxing sounds, task management, and AI-powered web blocking.",
   "icons": {
-    "16": "vite.svg",
-    "48": "vite.svg",
-    "128": "vite.svg"
+    "16": "logo.png",
+    "48": "logo.png",
+    "128": "logo.png"
   },
   "chrome_url_overrides": {
     "newtab": "index.html"

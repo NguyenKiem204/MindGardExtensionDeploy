@@ -49,20 +49,16 @@ public class PaymentService {
         SubscriptionPlan plan = planRepository.findById(request.getPlanId())
                 .orElseThrow(() -> new RuntimeException("Plan not found"));
 
-        // Generate Order Code: e.g. MG + userId + random short string
         String orderCode = "MG" + user.getId() + UUID.randomUUID().toString().substring(0, 5).toUpperCase();
 
-        // Create a pending UserSubscription row
         UserSubscription pendingSub = UserSubscription.builder()
                 .user(user)
                 .plan(plan)
-                .startDate(LocalDateTime.now()) // Temporary
-                .endDate(LocalDateTime.now())   // Temporary
+                .startDate(LocalDateTime.now())
+                .endDate(LocalDateTime.now())
                 .status("PENDING")
                 .build();
         userSubscriptionRepository.save(pendingSub);
-
-        // Create the initial transaction record
         PaymentTransaction transaction = PaymentTransaction.builder()
                 .user(user)
                 .userSubscription(pendingSub)
@@ -73,7 +69,6 @@ public class PaymentService {
                 .build();
         transactionRepository.save(transaction);
 
-        // Standard SePay VietQR Image url for inline display
         String qrUrl = String.format("https://qr.sepay.vn/img?acc=%s&bank=%s&amount=%d&des=%s",
                 bankAccount, bankName, plan.getPrice().longValue(), orderCode);
 
@@ -93,50 +88,66 @@ public class PaymentService {
 
     @Transactional
     public void handleSepayWebhook(Map<String, Object> payload) {
-        /*
-          Expected IPN payload from SePay Payment Gateway:
-          {
-            "notification_type": "ORDER_PAID",
-            "order": {
-                "order_invoice_number": "MG123...",
-                "order_amount": "100000.00"
-            },
-            "transaction": {
-                "transaction_id": "sepay_tx_id",
-                "transaction_amount": "100000"
-            }
-          }
-         */
-         
         log.info("Received SePay IPN webhook: {}", payload);
 
-        if (payload == null || !"ORDER_PAID".equals(payload.get("notification_type"))) {
+        if (payload == null) {
+            log.warn("Ignored. Payload is null.");
+            return;
+        }
+
+        String providerTxId;
+        String extractedOrderCode;
+        double transferAmount;
+
+        // Xử lý Webhook cơ bản ("Có tiền vào")
+        if (payload.containsKey("transferAmount") && payload.containsKey("id")) {
+            providerTxId = String.valueOf(payload.get("id"));
+            extractedOrderCode = String.valueOf(payload.get("code"));
+            
+            // Fallback content parsing nếu 'code' không có
+            if (extractedOrderCode == null || extractedOrderCode.equals("null") || extractedOrderCode.trim().isEmpty()) {
+                String content = String.valueOf(payload.get("content"));
+                Matcher matcher = Pattern.compile("(MG[a-zA-Z0-9]+)").matcher(content);
+                if (matcher.find()) {
+                    extractedOrderCode = matcher.group(1);
+                } else {
+                    extractedOrderCode = content;
+                }
+            }
+            
+            try {
+                transferAmount = Double.parseDouble(String.valueOf(payload.get("transferAmount")));
+            } catch (NumberFormatException e) {
+                log.warn("Failed to parse transferAmount", e);
+                return;
+            }
+        } 
+        // Xử lý IPN Checkout ("ORDER_PAID")
+        else if ("ORDER_PAID".equals(payload.get("notification_type"))) {
+            Map<String, Object> orderMap = (Map<String, Object>) payload.get("order");
+            Map<String, Object> txMap = (Map<String, Object>) payload.get("transaction");
+
+            if (orderMap == null || txMap == null) {
+                log.warn("Invalid payload structure, missing order or transaction block.");
+                return;
+            }
+            providerTxId = String.valueOf(txMap.get("transaction_id"));
+            extractedOrderCode = String.valueOf(orderMap.get("order_invoice_number"));
+            try {
+                transferAmount = Double.parseDouble(String.valueOf(txMap.get("transaction_amount")));
+            } catch (NumberFormatException e) {
+                log.warn("Failed to parse transaction_amount", e);
+                return;
+            }
+        } 
+        else {
             log.warn("Ignored. Invalid or unsupported webhook payload type.");
             return;
         }
 
-        Map<String, Object> orderMap = (Map<String, Object>) payload.get("order");
-        Map<String, Object> txMap = (Map<String, Object>) payload.get("transaction");
-
-        if (orderMap == null || txMap == null) {
-            log.warn("Invalid payload structure, missing order or transaction block.");
-            return;
-        }
-
-        String providerTxId = String.valueOf(txMap.get("transaction_id"));
-        
         // Anti-duplicate check
         if (transactionRepository.findByProviderTransactionId(providerTxId).isPresent()) {
             log.info("Webhook duplicate ignored for SePay ID: {}", providerTxId);
-            return;
-        }
-
-        String extractedOrderCode = String.valueOf(orderMap.get("order_invoice_number"));
-        double transferAmount = 0.0;
-        try {
-            transferAmount = Double.parseDouble(String.valueOf(txMap.get("transaction_amount")));
-        } catch (NumberFormatException e) {
-            log.warn("Failed to parse transaction_amount", e);
             return;
         }
 
@@ -150,24 +161,20 @@ public class PaymentService {
 
         if ("SUCCESS".equals(transaction.getStatus())) {
             log.info("Transaction {} already successful.", extractedOrderCode);
-            return; // Already processed
+            return;
         }
 
-        // Verify amount
         if (transferAmount >= transaction.getAmount()) {
-            // Success
             transaction.setStatus("SUCCESS");
             transaction.setProviderTransactionId(providerTxId);
             transaction.setCompletedAt(LocalDateTime.now());
             transactionRepository.save(transaction);
             
             log.info("Payment success for order: {}. Upgrading user...", extractedOrderCode);
-            // Delegate upgrading to SubscriptionService
             subscriptionService.processSuccessfulPayment(transaction);
         } else {
-            // Underpaid - for simplicity, we mark failed or needs manual review.
             log.warn("Underpaid transaction! Expected: {}, Received: {}", transaction.getAmount(), transferAmount);
-            transaction.setStatus("FAILED"); // Or "PARTIAL_PAID" if you support it
+            transaction.setStatus("FAILED");
             transaction.setProviderTransactionId(providerTxId);
             transaction.setCompletedAt(LocalDateTime.now());
             transactionRepository.save(transaction);

@@ -151,7 +151,7 @@ export const authService = {
       if (!appId) return reject(new Error("Facebook App ID is missing."));
 
       const redirectUri = chrome.identity.getRedirectURL();
-      const authUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${appId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=email,public_profile`;
+      const authUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${appId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=email,public_profile&display=popup`;
 
       chrome.identity.launchWebAuthFlow(
         { url: authUrl, interactive: true },
