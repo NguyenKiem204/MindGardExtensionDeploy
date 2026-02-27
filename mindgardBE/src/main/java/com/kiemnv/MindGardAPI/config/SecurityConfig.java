@@ -84,8 +84,6 @@ public class SecurityConfig {
                                 .requestMatchers("/v3/api-docs/**","/swagger/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                                 .requestMatchers("/api/feedback/**").permitAll()
                                 .requestMatchers("/api/auth/**").permitAll()
-                                .requestMatchers("/api/news/**").permitAll()
-                                .requestMatchers("/api/blogs/**").permitAll()
                                 .requestMatchers("/api/service-fees/**").permitAll()
                                 .requestMatchers("/api/v1/subscriptions/sepay-webhook").permitAll()
                                 .requestMatchers(HttpMethod.GET, "/api/v1/subscriptions/plans").permitAll()
