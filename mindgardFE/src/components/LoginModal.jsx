@@ -120,11 +120,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }) {
 
         <div className="relative p-8 px-8 sm:px-10 z-10">
           <div className="text-center mb-8">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/30">
-              <ShieldCheck className="h-7 w-7 text-white" />
-            </div>
             <h3 className="text-2xl font-bold tracking-tight text-white mb-2">
-              {isRegisterMode ? "Tạo tài khoản" : "Chào mừng trở lại!"}
+              {isRegisterMode ? "Tạo tài khoản" : "Đăng nhập"}
             </h3>
             <p className="text-sm text-gray-400 font-medium">
               {isRegisterMode
@@ -133,12 +130,12 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }) {
             </p>
           </div>
 
-          <div className="flex flex-col gap-3 mb-6">
+          <div className="flex flex-row gap-3 mb-6">
             <button
               type="button"
               onClick={handleGoogleLogin}
               disabled={isSubmitting}
-              className="group relative flex items-center justify-center gap-3 w-full rounded-[4px] bg-white hover:bg-gray-50 h-10 font-medium text-gray-800 transition-all duration-200 disabled:opacity-60 text-[14px] overflow-hidden"
+              className="group relative flex items-center justify-center gap-2 flex-1 rounded-[4px] bg-white hover:bg-gray-50 h-10 font-medium text-gray-800 transition-all duration-200 disabled:opacity-60 text-[14px] overflow-hidden"
             >
               <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -147,7 +144,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }) {
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
                 <path d="M1 1h22v22H1z" fill="none" />
               </svg>
-              <span>{isRegisterMode ? "Đăng ký" : "Đăng nhập"} với Google</span>
+              <span>Google</span>
             </button>
 
             {FACEBOOK_APP_ID && (
@@ -155,10 +152,10 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }) {
                 type="button"
                 onClick={handleFacebookLogin}
                 disabled={isSubmitting}
-                className="flex items-center justify-center gap-3 w-full rounded-[4px] bg-[#1877F2] hover:bg-[#1864D9] h-10 font-medium text-white transition-colors duration-200 disabled:opacity-60 text-[14px]"
+                className="flex items-center justify-center gap-2 flex-1 rounded-[4px] bg-[#1877F2] hover:bg-[#1864D9] h-10 font-medium text-white transition-colors duration-200 disabled:opacity-60 text-[14px]"
               >
                 <Facebook className="w-[18px] h-[18px] fill-current" />
-                <span>{isRegisterMode ? "Đăng ký" : "Đăng nhập"} với Facebook</span>
+                <span>Facebook</span>
               </button>
             )}
           </div>
