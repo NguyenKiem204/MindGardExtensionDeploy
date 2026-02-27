@@ -38,15 +38,14 @@ export const authManager = {
     try {
       console.log("[Auth] Calling /auth/refresh (cookie based) ...", {
         baseURL:
-          import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api",
+          import.meta.env.VITE_API_BASE_URL || "https://kiemnv.shop/api",
       });
       const response = await axios.post(
-        `${
-          import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api"
+        `${import.meta.env.VITE_API_BASE_URL || "https://kiemnv.shop/api"
         }/auth/refresh`,
         {},
         {
-          withCredentials: true, 
+          withCredentials: true,
           headers: {
             "Content-Type": "application/json",
             "ngrok-skip-browser-warning": "true",
@@ -82,8 +81,7 @@ export const authManager = {
   refreshTokenWithBody: async (refreshToken) => {
     try {
       const response = await axios.post(
-        `${
-          import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api"
+        `${import.meta.env.VITE_API_BASE_URL || "https://kiemnv.shop/api"
         }/auth/refresh-token`,
         { refreshToken },
         {
@@ -146,7 +144,7 @@ export function initAuthAutoRefresh() {
 }
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api",
+  baseURL: import.meta.env.VITE_API_BASE_URL || "https://kiemnv.shop/api",
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",

@@ -19,7 +19,8 @@
     "windows",
     "tabs",
     "alarms",
-    "webNavigation"
+    "webNavigation",
+    "identity"
   ],
   "host_permissions": [
     "<all_urls>",

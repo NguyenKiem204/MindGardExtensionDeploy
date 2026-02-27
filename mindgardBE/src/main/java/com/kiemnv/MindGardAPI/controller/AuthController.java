@@ -3,6 +3,7 @@ package com.kiemnv.MindGardAPI.controller;
 import com.kiemnv.MindGardAPI.dto.request.LoginRequest;
 import com.kiemnv.MindGardAPI.dto.request.RefreshTokenRequest;
 import com.kiemnv.MindGardAPI.dto.request.RegisterRequest;
+import com.kiemnv.MindGardAPI.dto.request.OAuth2Request;
 import com.kiemnv.MindGardAPI.dto.response.ApiResponse;
 import com.kiemnv.MindGardAPI.dto.response.AuthResponse;
 import com.kiemnv.MindGardAPI.entity.User;
@@ -49,6 +50,22 @@ public class AuthController {
                                                               HttpServletResponse response) {
         AuthResponse authResponse = authService.register(request, response);
         return ResponseEntity.ok(ApiResponse.success(authResponse, "Registration successful"));
+    }
+
+    @PostMapping("/oauth2/google")
+    @Operation(summary = "Login with Google", description = "Login or register using Google ID token")
+    public ResponseEntity<ApiResponse<AuthResponse>> googleLogin(@Valid @RequestBody OAuth2Request request,
+                                                                 HttpServletResponse response) {
+        AuthResponse authResponse = authService.googleLogin(request.getToken(), response);
+        return ResponseEntity.ok(ApiResponse.success(authResponse, "Google login successful"));
+    }
+
+    @PostMapping("/oauth2/facebook")
+    @Operation(summary = "Login with Facebook", description = "Login or register using Facebook access token")
+    public ResponseEntity<ApiResponse<AuthResponse>> facebookLogin(@Valid @RequestBody OAuth2Request request,
+                                                                 HttpServletResponse response) {
+        AuthResponse authResponse = authService.facebookLogin(request.getToken(), response);
+        return ResponseEntity.ok(ApiResponse.success(authResponse, "Facebook login successful"));
     }
 
     @PostMapping("/refresh")

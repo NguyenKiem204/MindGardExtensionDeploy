@@ -17,6 +17,12 @@ sepay:
   bank-account: "${SEPAY_BANK_ACCOUNT}"
   bank-name: "${SEPAY_BANK_NAME}"
 
+oauth2:
+  google:
+    client-id: "${APP_OAUTH2_GOOGLE_CLIENT_ID:}"
+  facebook:
+    app-id: "${APP_OAUTH2_FACEBOOK_APP_ID:}"
+
 spring:
   mail:
     host: smtp.gmail.com

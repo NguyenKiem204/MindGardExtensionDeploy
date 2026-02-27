@@ -27,6 +27,17 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import com.kiemnv.MindGardAPI.entity.Provider;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.client.RestTemplate;
+import java.util.Collections;
+import java.util.Map;
+import java.util.UUID;
+
 import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -42,6 +53,9 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final JwtProperties jwtProperties;
+
+    @Value("${oauth2.google.client-id:}")
+    private String googleClientId;
 
     @Transactional
     public AuthResponse login(LoginRequest request, HttpServletResponse response) {
@@ -61,6 +75,98 @@ public class AuthService {
         addRefreshTokenCookie(response, refreshToken);
 
         return buildAuthResponse(user, accessToken, refreshToken);
+    }
+
+    @Transactional
+    public AuthResponse googleLogin(String idTokenString, HttpServletResponse response) {
+        try {
+            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
+                    new NetHttpTransport(), new GsonFactory())
+                    .setAudience(Collections.singletonList(googleClientId))
+                    .build();
+
+            GoogleIdToken idToken = verifier.verify(idTokenString);
+            if (idToken != null) {
+                GoogleIdToken.Payload payload = idToken.getPayload();
+
+                String email = payload.getEmail();
+                String firstName = (String) payload.get("given_name");
+                String lastName = (String) payload.get("family_name");
+                String pictureUrl = (String) payload.get("picture");
+                
+                return processOAuthPostLogin(email, firstName, lastName, pictureUrl, Provider.GOOGLE, response);
+            } else {
+                throw new RuntimeException("Invalid ID token.");
+            }
+        } catch (Exception e) {
+            log.error("Google verify error", e);
+            throw new RuntimeException("Google authentication failed", e);
+        }
+    }
+
+    @Transactional
+    public AuthResponse facebookLogin(String accessToken, HttpServletResponse response) {
+        try {
+            RestTemplate restTemplate = new RestTemplate();
+            String url = "https://graph.facebook.com/me?fields=id,name,email,picture&access_token=" + accessToken;
+            Map<String, Object> params = restTemplate.getForObject(url, Map.class);
+            if (params == null || !params.containsKey("email")) {
+                throw new RuntimeException("Cannot retrieve email from Facebook");
+            }
+            
+            String email = (String) params.get("email");
+            String name = (String) params.get("name");
+            String firstName = name;
+            String lastName = "";
+            if (name != null && name.contains(" ")) {
+                firstName = name.substring(0, name.indexOf(" "));
+                lastName = name.substring(name.indexOf(" ") + 1);
+            }
+            
+            String pictureUrl = null;
+            if (params.containsKey("picture")) {
+                Map<String, Object> pictureObj = (Map<String, Object>) params.get("picture");
+                if (pictureObj.containsKey("data")) {
+                    Map<String, Object> dataObj = (Map<String, Object>) pictureObj.get("data");
+                    if (dataObj.containsKey("url")) {
+                        pictureUrl = (String) dataObj.get("url");
+                    }
+                }
+            }
+            
+            return processOAuthPostLogin(email, firstName, lastName, pictureUrl, Provider.FACEBOOK, response);
+        } catch (Exception e) {
+            log.error("Facebook verify error", e);
+            throw new RuntimeException("Facebook authentication failed", e);
+        }
+    }
+
+    private AuthResponse processOAuthPostLogin(String email, String firstName, String lastName, String avatarUrl, Provider provider, HttpServletResponse response) {
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null) {
+            user = User.builder()
+                    .username(email.split("@")[0] + "_" + UUID.randomUUID().toString().substring(0, 5))
+                    .email(email)
+                    .password(passwordEncoder.encode(UUID.randomUUID().toString())) // dummy password
+                    .firstName(firstName)
+                    .lastName(lastName)
+                    .avatarUrl(avatarUrl)
+                    .roles(Set.of(Role.USER))
+                    .status(UserStatus.ACTIVE)
+                    .provider(provider)
+                    .build();
+            user = userRepository.save(user);
+        }
+
+        userRepository.updateLastLogin(user.getId(), LocalDateTime.now());
+
+        String newAccessToken = jwtService.generateAccessToken(user);
+        String newRefreshToken = jwtService.generateRefreshToken(user);
+
+        saveRefreshToken(user, newRefreshToken);
+        addRefreshTokenCookie(response, newRefreshToken);
+
+        return buildAuthResponse(user, newAccessToken, newRefreshToken);
     }
 
 

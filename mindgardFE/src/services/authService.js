@@ -99,6 +99,90 @@ export const authService = {
     return authData;
   },
 
+  oauth2Google: async () => {
+    return new Promise((resolve, reject) => {
+      if (typeof chrome === "undefined" || !chrome.identity) {
+        return reject(new Error("Chrome Identity API is not available."));
+      }
+
+      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+      if (!clientId) return reject(new Error("Google Client ID is missing."));
+
+      const redirectUri = chrome.identity.getRedirectURL();
+      const authUrl = `https://accounts.google.com/o/oauth2/auth?client_id=${clientId}&response_type=id_token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=openid%20email%20profile&nonce=${Math.random().toString(36).substring(2)}`;
+
+      chrome.identity.launchWebAuthFlow(
+        { url: authUrl, interactive: true },
+        async (redirectUrl) => {
+          if (chrome.runtime.lastError || !redirectUrl) {
+            return reject(new Error(chrome.runtime.lastError?.message || "Login cancelled"));
+          }
+
+          try {
+            // Extract the id_token from the URL hash
+            const urlParams = new URLSearchParams(new URL(redirectUrl.replace("#", "?")).search);
+            const idToken = urlParams.get("id_token");
+
+            if (!idToken) throw new Error("No ID token found in the response.");
+
+            const res = await api.post("/auth/oauth2/google", { token: idToken });
+            const authData = normalizeAuthResponse(res.data);
+            persistAuth(authData);
+
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("mindgard_auth_changed", { detail: { authenticated: true } }));
+            }
+            resolve(authData);
+          } catch (error) {
+            reject(error);
+          }
+        }
+      );
+    });
+  },
+
+  oauth2Facebook: async () => {
+    return new Promise((resolve, reject) => {
+      if (typeof chrome === "undefined" || !chrome.identity) {
+        return reject(new Error("Chrome Identity API is not available."));
+      }
+
+      const appId = import.meta.env.VITE_FACEBOOK_APP_ID;
+      if (!appId) return reject(new Error("Facebook App ID is missing."));
+
+      const redirectUri = chrome.identity.getRedirectURL();
+      const authUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${appId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=email,public_profile`;
+
+      chrome.identity.launchWebAuthFlow(
+        { url: authUrl, interactive: true },
+        async (redirectUrl) => {
+          if (chrome.runtime.lastError || !redirectUrl) {
+            return reject(new Error(chrome.runtime.lastError?.message || "Login cancelled"));
+          }
+
+          try {
+            // Extract the access_token from the URL hash
+            const urlParams = new URLSearchParams(new URL(redirectUrl.replace("#", "?")).search);
+            const accessToken = urlParams.get("access_token");
+
+            if (!accessToken) throw new Error("No access token found in the response.");
+
+            const res = await api.post("/auth/oauth2/facebook", { token: accessToken });
+            const authData = normalizeAuthResponse(res.data);
+            persistAuth(authData);
+
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("mindgard_auth_changed", { detail: { authenticated: true } }));
+            }
+            resolve(authData);
+          } catch (error) {
+            reject(error);
+          }
+        }
+      );
+    });
+  },
+
   refreshMe: async () => {
     // Pull latest user fields (level/xp/avatar/etc) after gameplay updates
     const res = await api.get("/auth/me");
