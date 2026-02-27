@@ -30,7 +30,7 @@ public class DataSeederConfig {
                 monthlyPlan.setPrice(29000.0);
                 monthlyPlan.setCurrency("VND");
                 monthlyPlan.setDurationDays(30);
-                monthlyPlan.setFeaturesJson("[\"Không quảng cáo\", \"Mở khóa toàn bộ Hình nền & Âm thanh Cao cấp\", \"Chế độ chặn xao nhãng bằng AI (AI Strict Focus)\", \"Phòng học chung (Shared Focus Rooms)\", \"Phân tích hiệu suất học tập nâng cao\"]");
+                monthlyPlan.setFeaturesJson("[\"Không quảng cáoo \", \"Mở khóa toàn bộ Hình nền & Âm thanh Cao cấp\", \"Chế độ chặn xao nhãng bằng AI (AI Strict Focus)\", \"Phòng học chung (Shared Focus Rooms)\", \"Phân tích hiệu suất học tập nâng cao\"]");
                 monthlyPlan.setIsActive(true);
 
                 SubscriptionPlan yearlyPlan = new SubscriptionPlan();
