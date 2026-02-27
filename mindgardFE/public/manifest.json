@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "Focus Dashboard",
+  "version": "0.1.0",
+  "description": "Turn New Tab into a deep work dashboard with Pomodoro, weather ambiance, music, to-dos, and AI blocking.",
+  "icons": {
+    "16": "vite.svg",
+    "48": "vite.svg",
+    "128": "vite.svg"
+  },
+  "chrome_url_overrides": {
+    "newtab": "index.html"
+  },
+  "options_page": "options.html",
+  "permissions": [
+    "storage",
+    "notifications",
+    "declarativeNetRequest",
+    "windows",
+    "tabs",
+    "alarms",
+    "webNavigation"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "https://generativelanguage.googleapis.com/*"
+  ],
+  "background": {
+    "service_worker": "extension/background.js"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; frame-src https://www.youtube.com https://www.youtube-nocookie.com"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "extension/content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

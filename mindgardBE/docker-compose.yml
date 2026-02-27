@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: mindgard-db
+    environment:
+      POSTGRES_DB: mindgard
+      POSTGRES_USER: mindgard
+      POSTGRES_PASSWORD: mindgard
+    ports:
+      - "5433:5432"
+    volumes:
+      - mindgard_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mindgard -d mindgard"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mindgard-api
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/mindgard
+      SPRING_DATASOURCE_USERNAME: mindgard
+      SPRING_DATASOURCE_PASSWORD: mindgard
+      APP_JWT_SECRET_KEY: ${APP_JWT_SECRET_KEY}
+      SEPAY_CLIENT_ID: ${SEPAY_CLIENT_ID}
+      SEPAY_WEBHOOK_SECRET: ${SEPAY_WEBHOOK_SECRET}
+      SEPAY_BANK_ACCOUNT: ${SEPAY_BANK_ACCOUNT}
+      SEPAY_BANK_NAME: ${SEPAY_BANK_NAME}
+
+volumes:
+  mindgard_db:

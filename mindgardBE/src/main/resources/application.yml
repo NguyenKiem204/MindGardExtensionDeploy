@@ -1,0 +1,31 @@
+app:
+  jwt:
+    secret-key: "${APP_JWT_SECRET_KEY}"
+    access-token-expiration: 900000 # 15 minutes
+    refresh-token-expiration: 2592000000 # 30 days
+    issuer: "MindGard Extension Productivity"
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui
+
+sepay:
+  client-id: "${SEPAY_CLIENT_ID}"
+  webhook-secret: "${SEPAY_WEBHOOK_SECRET}"
+  bank-account: "${SEPAY_BANK_ACCOUNT}"
+  bank-name: "${SEPAY_BANK_NAME}"
+
+spring:
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: "${EMAIL_USERNAME}"
+    password: "${EMAIL_PASSWORD}"
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
