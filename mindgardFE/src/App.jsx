@@ -21,14 +21,13 @@ export default function App() {
       setIsAuthenticated(authenticated);
       setIsChecking(false);
     };
-    
+
     checkAuth();
-    // Listen for auth changes
     const onAuthChanged = () => checkAuth();
     window.addEventListener("mindgard_auth_cleared", onAuthChanged);
     window.addEventListener("mindgard_auth_expired", onAuthChanged);
     window.addEventListener("mindgard_auth_changed", onAuthChanged);
-    
+
     return () => {
       window.removeEventListener("mindgard_auth_cleared", onAuthChanged);
       window.removeEventListener("mindgard_auth_expired", onAuthChanged);
@@ -36,7 +35,6 @@ export default function App() {
     };
   }, []);
 
-  // Show loading while checking auth
   if (isChecking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
@@ -45,9 +43,7 @@ export default function App() {
     );
   }
 
-  // Require authentication to use the extension
   if (!isAuthenticated) {
-    // Force open login modal by triggering it through StudyFocusUI
     return <StudyFocusUI forceShowLogin={true} />;
   }
 

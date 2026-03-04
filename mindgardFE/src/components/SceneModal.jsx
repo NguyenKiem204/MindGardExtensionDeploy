@@ -4,7 +4,7 @@ import { Lock } from "lucide-react";
 import { authService } from "../services/authService";
 
 export default function SceneModal({ isOpen, onClose, onSelectBackground }) {
-  const [activeTab, setActiveTab] = useState("motion");
+  const [activeTab, setActiveTab] = useState("stills");
   const [motionScenes, setMotionScenes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isPlusUser, setIsPlusUser] = useState(false);
@@ -19,11 +19,11 @@ export default function SceneModal({ isOpen, onClose, onSelectBackground }) {
     return () => window.removeEventListener("mindgard_auth_changed", checkPlus);
   }, []);
 
-  // Reset to motion tab when modal opens
+  // Reset to stills tab when modal opens
   useEffect(() => {
     if (isOpen) {
-      setActiveTab("motion");
-      console.log('Modal opened, reset to motion tab');
+      setActiveTab("stills");
+      console.log('Modal opened, reset to stills tab');
     }
   }, [isOpen]);
 

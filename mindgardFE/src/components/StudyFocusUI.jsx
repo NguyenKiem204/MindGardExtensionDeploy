@@ -29,8 +29,8 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
   const [showLoginModalOnly, setShowLoginModalOnly] = useState(false);
   const [focusModeSetting, setFocusModeSetting] = useState('manual'); // 'manual' | 'ai'
   const [focusTopic, setFocusTopic] = useState('Focus');
-  const [backgroundType, setBackgroundType] = useState("room"); // "room", "video", "image"
-  const [backgroundUrl, setBackgroundUrl] = useState("");
+  const [backgroundType, setBackgroundType] = useState("image"); // "room", "video", "image"
+  const [backgroundUrl, setBackgroundUrl] = useState("https://images.pexels.com/photos/1743381/pexels-photo-1743381.jpeg?auto=compress&cs=tinysrgb&w=1920&h=1080&fit=crop");
   const [showTagDropdown, setShowTagDropdown] = useState(false);
   const [showTaskInput, setShowTaskInput] = useState(false);
   const [showSettingsButton, setShowSettingsButton] = useState(false);
@@ -1485,8 +1485,8 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
               <button
                 onClick={toggleTimer}
                 className={`p-4 rounded-full text-white transition shadow-lg flex items-center justify-center ${isRunning
-                    ? 'bg-blue-500 hover:bg-blue-600'
-                    : 'bg-orange-500 hover:bg-orange-600'
+                  ? 'bg-blue-500 hover:bg-blue-600'
+                  : 'bg-orange-500 hover:bg-orange-600'
                   }`}
               >
                 {isRunning ? (

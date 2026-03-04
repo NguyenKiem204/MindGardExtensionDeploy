@@ -11,18 +11,14 @@ export const useAudio = () => useContext(AudioContext);
 
 export const AudioProvider = ({ children }) => {
     const [isPlaying, setIsPlaying] = useState(false);
-    const [activeMusic, setActiveMusic] = useState(null); // { id, src, type, name, thumbnail }
-    const [activeSoundscapes, setActiveSoundscapes] = useState({}); // { id: { volume: 0.5, ... } }
+    const [activeMusic, setActiveMusic] = useState(null);
+    const [activeSoundscapes, setActiveSoundscapes] = useState({});
     const [globalVolume, setGlobalVolume] = useState(0.5);
 
-    // Ref for YouTube player
     const playerRef = useRef(null);
-    // Refs for HTML5 Audio (Soundscapes)
     const soundscapeRefs = useRef({});
-    // Bỏ qua onPause ngay sau khi user bấm play (tránh AbortError: play bị pause ngắt)
     const lastPlayRequestAt = useRef(0);
 
-    // Unmute YouTube player (trình duyệt thường ép mute khi autoplay)
     const unmuteYoutubePlayer = () => {
         try {
             const internal = playerRef.current?.getInternalPlayer?.();
@@ -36,13 +32,10 @@ export const AudioProvider = ({ children }) => {
         }
     };
 
-    // Toggle global play/pause
     const togglePlay = () => setIsPlaying(!isPlaying);
 
-    // setPlaying(true/false) direct
     const setPlaying = (state) => setIsPlaying(state);
 
-    // Normalize YouTube track: ensure type is YOUTUBE and src is video ID only
     const normalizeMusicTrack = (track) => {
         if (!track) return null;
         let src = track.src || track.videoId || "";
@@ -54,7 +47,6 @@ export const AudioProvider = ({ children }) => {
         return { ...track, src, type: type || "YOUTUBE" };
     };
 
-    // Play a music track (replaces current music)
     const playMusic = (track) => {
         console.log("[Sounds] playMusic called", { track, rawSrc: track?.src, rawType: track?.type });
         const normalized = normalizeMusicTrack(track);
@@ -72,21 +64,17 @@ export const AudioProvider = ({ children }) => {
         }
     };
 
-    // Toggle a soundscape (Rain, Fire...)
-    // sound = { id, src, name }
     const toggleSoundscape = (sound) => {
         setActiveSoundscapes(prev => {
             const next = { ...prev };
             if (next[sound.id]) {
                 delete next[sound.id];
-                // Stop audio
                 if (soundscapeRefs.current[sound.id]) {
                     soundscapeRefs.current[sound.id].pause();
                     delete soundscapeRefs.current[sound.id];
                 }
             } else {
                 next[sound.id] = { ...sound, volume: 0.5 };
-                // Start audio
                 const audio = new Audio(sound.src);
                 audio.loop = true;
                 audio.volume = 0.5 * globalVolume;
@@ -97,9 +85,7 @@ export const AudioProvider = ({ children }) => {
         });
     };
 
-    // Update volume
     useEffect(() => {
-        // Update soundscapes volume
         Object.keys(soundscapeRefs.current).forEach(id => {
             const audio = soundscapeRefs.current[id];
             if (audio) {
@@ -127,7 +113,6 @@ export const AudioProvider = ({ children }) => {
         }}>
             {children}
 
-            {/* YouTube Player - phải >= 200x200px thì YouTube mới cho phát (API requirement) */}
             {showYoutubePlayer && (
                 <div
                     data-sounds-debug="youtube-player-mounted"
@@ -176,12 +161,10 @@ export const AudioProvider = ({ children }) => {
                         onStart={() => {
                             console.log("[Sounds] YouTube started");
                             setPlaying(true);
-                            // Unmute sau khi start (trình duyệt có thể mute autoplay)
                             setTimeout(unmuteYoutubePlayer, 300);
                         }}
                         onPlay={() => setPlaying(true)}
                         onPause={() => {
-                            // Tránh onPause fire ngay khi load (extension/YouTube) làm play() bị AbortError
                             const sincePlay = Date.now() - lastPlayRequestAt.current;
                             if (sincePlay > 2500) setPlaying(false);
                         }}
