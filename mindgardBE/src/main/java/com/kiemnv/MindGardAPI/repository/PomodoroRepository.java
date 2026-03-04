@@ -31,4 +31,12 @@ public interface PomodoroRepository extends JpaRepository<PomodoroSession, Long>
     
     @Query("SELECT p FROM PomodoroSession p WHERE p.user.id = :userId AND p.status = 'FINISHED' AND p.endAt >= :startDate AND p.endAt < :endDate")
     List<PomodoroSession> findByUserIdAndDateRange(@Param("userId") Long userId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    /** Batch query: sum durationSeconds grouped by user for a date range (avoids N+1) */
+    @Query("SELECT p.user.id, SUM(p.durationSeconds) FROM PomodoroSession p " +
+           "WHERE p.status IN ('FINISHED', 'ABORTED') " +
+           "AND p.endAt >= :startDate AND p.endAt <= :endDate " +
+           "AND p.durationSeconds >= 60 " +
+           "GROUP BY p.user.id")
+    List<Object[]> sumDurationGroupedByUser(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 }

@@ -6,18 +6,19 @@ import com.kiemnv.MindGardAPI.entity.User;
 import com.kiemnv.MindGardAPI.repository.LeaderboardRepository;
 import com.kiemnv.MindGardAPI.repository.PomodoroRepository;
 import com.kiemnv.MindGardAPI.repository.UserRepository;
-import com.kiemnv.MindGardAPI.service.FriendService;
-import org.springframework.transaction.annotation.Transactional;
+import com.kiemnv.MindGardAPI.scheduler.LeaderboardScheduler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -27,105 +28,61 @@ public class LeaderboardService {
 
     private final LeaderboardRepository leaderboardRepository;
     private final PomodoroRepository pomodoroRepository;
-    private final UserRepository userRepository;
     private final FriendService friendService;
+    private final UserRepository userRepository;
 
-    public Page<LeaderboardEntry> list(String period, Pageable pageable) {
-        return leaderboardRepository.findByPeriod(period, pageable);
-    }
+    /**
+     * Get cached leaderboard from leaderboard_entries table.
+     * Data is precomputed by LeaderboardScheduler every 5 minutes.
+     */
+    @Transactional(readOnly = true)
+    public List<LeaderboardEntryDto> getCachedLeaderboard(String period, LocalDate date, String scope, Long userId) {
+        String periodKey = LeaderboardScheduler.buildPeriodKey(period, date);
+        log.info("[LeaderboardService] getCachedLeaderboard: periodKey={}, scope={}, userId={}", periodKey, scope, userId);
 
-    public List<LeaderboardEntry> top(String period) {
-        return leaderboardRepository.findByPeriodOrderByScoreDesc(period);
-    }
+        List<LeaderboardEntry> entries;
 
-    @Transactional
-    public LeaderboardEntry upsert(User user, String period, Long score) {
-        LeaderboardEntry e = LeaderboardEntry.builder().user(user).period(period).score(score).rank(null).createdAt(LocalDateTime.now()).build();
-        return leaderboardRepository.save(e);
+        if ("friends".equals(scope) && userId != null) {
+            List<Long> friendIds = getFriendUserIds(userId);
+            friendIds.add(userId);
+            entries = leaderboardRepository.findByPeriodKeyAndUserIdIn(periodKey, friendIds);
+
+            // Re-rank within friends scope
+            for (int i = 0; i < entries.size(); i++) {
+                entries.get(i).setRank(i + 1);
+            }
+            log.info("[LeaderboardService] Friends scope: {} entries for {} friends", entries.size(), friendIds.size());
+        } else {
+            entries = leaderboardRepository.findByPeriodKeyOrderByRankAsc(periodKey);
+            log.info("[LeaderboardService] Global scope: {} entries", entries.size());
+        }
+
+        List<LeaderboardEntryDto> dtos = entries.stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+
+        log.info("[LeaderboardService] Returning {} entries for periodKey={}", dtos.size(), periodKey);
+        return dtos;
     }
 
     /**
-     * Get leaderboard from real data (PomodoroSession) for a period
-     * @param period "daily", "weekly", or "monthly"
-     * @param date The reference date (for daily/weekly/monthly calculation)
-     * @param scope "global" or "friends" (if friends, userId is required)
-     * @param userId Current user ID (for friends scope)
-     * @param includeTrend Whether to calculate trend (requires previous period lookup)
-     * @return List of leaderboard entries sorted by total minutes
+     * Get current user's entry from cached leaderboard (for pinning at bottom).
+     * Always returns an entry (even with 0 minutes) so the pinned row always shows.
      */
     @Transactional(readOnly = true)
-    public List<LeaderboardEntryDto> getRealLeaderboard(String period, LocalDate date, String scope, Long userId, boolean includeTrend) {
-        log.info("[LeaderboardService] getRealLeaderboard called: period={}, date={}, scope={}, userId={}", 
-                period, date, scope, userId);
-        
-        LocalDateTime startDate;
-        LocalDateTime endDate;
-
-        switch (period.toLowerCase()) {
-            case "daily":
-                startDate = LocalDateTime.of(date, LocalTime.MIN);
-                endDate = LocalDateTime.of(date, LocalTime.MAX);
-                break;
-            case "weekly":
-                // Monday of the week
-                int dayOfWeek = date.getDayOfWeek().getValue() - 1; // Monday = 0
-                startDate = LocalDateTime.of(date.minusDays(dayOfWeek), LocalTime.MIN);
-                endDate = LocalDateTime.of(startDate.toLocalDate().plusDays(6), LocalTime.MAX);
-                break;
-            case "monthly":
-                startDate = LocalDateTime.of(date.withDayOfMonth(1), LocalTime.MIN);
-                endDate = LocalDateTime.of(startDate.toLocalDate().plusMonths(1).minusDays(1), LocalTime.MAX);
-                break;
-            default:
-                startDate = LocalDateTime.of(date, LocalTime.MIN);
-                endDate = LocalDateTime.of(date, LocalTime.MAX);
-        }
-
-        log.info("[LeaderboardService] Date range: startDate={}, endDate={}", startDate, endDate);
-
-        List<User> users;
-        if ("friends".equals(scope) && userId != null) {
-            // Get friends list
-            users = userRepository.findAll().stream()
-                    .filter(u -> {
-                        try {
-                            String status = friendService.getRelationshipStatus(userId, u.getId());
-                            return "ACCEPTED".equals(status);
-                        } catch (Exception e) {
-                            log.warn("[LeaderboardService] Error getting relationship status: userId={}, targetId={}", 
-                                    userId, u.getId(), e);
-                            return false;
-                        }
-                    })
-                    .collect(Collectors.toList());
-            userRepository.findById(userId).ifPresent(users::add);
-            log.info("[LeaderboardService] Friends scope: found {} friends (including self)", users.size());
-        } else {
-            users = userRepository.findAll();
-            log.info("[LeaderboardService] Global scope: found {} users", users.size());
-        }
-
-        LocalDateTime finalStartDate = startDate;
-        LocalDateTime finalEndDate = endDate;
-        log.info("[LeaderboardService] Querying pomodoro sessions: startDate={}, endDate={}, users={}", 
-                finalStartDate, finalEndDate, users.size());
-        
-        List<LeaderboardEntryDto> entries = users.stream()
-                .map(user -> {
-                    Long totalSeconds = pomodoroRepository.sumDurationSecondsByUserIdAndDateRange(
-                            user.getId(), finalStartDate, finalEndDate);
-                    if (totalSeconds == null) totalSeconds = 0L;
-                    long totalMinutes = totalSeconds / 60;
-                    
-                    log.debug("[LeaderboardService] User {}: {} seconds = {} minutes", 
-                            user.getId(), totalSeconds, totalMinutes);
-
+    public LeaderboardEntryDto getCurrentUserEntry(String period, LocalDate date, Long userId) {
+        String periodKey = LeaderboardScheduler.buildPeriodKey(period, date);
+        return leaderboardRepository.findByPeriodKeyAndUserId(periodKey, userId)
+                .map(this::toDto)
+                .orElseGet(() -> {
+                    // User has no entry yet — return a default with 0 minutes
+                    User user = userRepository.findById(userId).orElse(null);
+                    if (user == null) return null;
                     String displayName = user.getFirstName() != null && user.getLastName() != null
                             ? (user.getFirstName() + " " + user.getLastName()).trim()
                             : (user.getFirstName() != null ? user.getFirstName()
                             : (user.getLastName() != null ? user.getLastName()
                             : user.getUsername()));
-
                     return LeaderboardEntryDto.builder()
                             .id(user.getId())
                             .userId(user.getId())
@@ -134,78 +91,150 @@ public class LeaderboardService {
                             .avatarUrl(user.getAvatarUrl())
                             .bio(user.getBio())
                             .level(user.getLevel() != null ? user.getLevel() : 1)
-                            .totalMinutes(totalMinutes)
-                            .rank(null) // Will be set after sorting
+                            .totalMinutes(0L)
+                            .rank(null)
+                            .trend(null)
+                            .previousRank(null)
                             .build();
-                })
-                .filter(e -> e.getTotalMinutes() > 0) // Only include users with activity
-                .sorted((a, b) -> Long.compare(b.getTotalMinutes(), a.getTotalMinutes()))
-                .collect(Collectors.toList());
-
-        log.info("[LeaderboardService] After filtering (totalMinutes > 0): {} entries", entries.size());
-
-        for (int i = 0; i < entries.size(); i++) {
-            entries.get(i).setRank(i + 1);
-        }
-
-        if (includeTrend) {
-            LocalDate previousDate;
-            switch (period.toLowerCase()) {
-                case "daily":
-                    previousDate = date.minusDays(1);
-                    break;
-                case "weekly":
-                    previousDate = date.minusWeeks(1);
-                    break;
-                case "monthly":
-                    previousDate = date.minusMonths(1);
-                    break;
-                default:
-                    previousDate = date.minusDays(1);
-            }
-
-            // Get previous period leaderboard for comparison (without trend to avoid infinite recursion)
-            List<LeaderboardEntryDto> previousEntries = getRealLeaderboard(period, previousDate, scope, userId, false);
-            java.util.Map<Long, Integer> previousRankMap = previousEntries.stream()
-                    .collect(java.util.stream.Collectors.toMap(
-                            LeaderboardEntryDto::getUserId,
-                            LeaderboardEntryDto::getRank,
-                            (a, b) -> a
-                    ));
-
-            // Calculate trend for each entry
-            for (LeaderboardEntryDto entry : entries) {
-                Integer prevRank = previousRankMap.get(entry.getUserId());
-                entry.setPreviousRank(prevRank);
-                
-                if (prevRank == null) {
-                    // New entry - no previous rank
-                    entry.setTrend("up");
-                } else {
-                    int currentRank = entry.getRank();
-                    if (currentRank < prevRank) {
-                        entry.setTrend("up"); // Rank improved (lower number = better)
-                    } else if (currentRank > prevRank) {
-                        entry.setTrend("down"); // Rank worsened
-                    } else {
-                        entry.setTrend("stable"); // Same rank
-                    }
-                }
-            }
-        }
-
-        // Limit to top 100
-        List<LeaderboardEntryDto> topEntries = entries.stream()
-                .limit(100)
-                .collect(Collectors.toList());
-
-        log.info("[LeaderboardService] Returning {} entries (top 100)", topEntries.size());
-        return topEntries;
+                });
     }
 
-    // Overload for backward compatibility (default includeTrend = true)
-    @Transactional(readOnly = true)
-    public List<LeaderboardEntryDto> getRealLeaderboard(String period, LocalDate date, String scope, Long userId) {
-        return getRealLeaderboard(period, date, scope, userId, true);
+    /**
+     * Write-through cache: immediately update a user's leaderboard entry
+     * after they complete a Pomodoro session.
+     * Updates daily, weekly, and monthly for the current date.
+     */
+    @Transactional
+    public void updateUserLeaderboard(User user) {
+        LocalDate today = LocalDate.now();
+        log.info("[LeaderboardService] Write-through update for user {} ({})", user.getId(), user.getUsername());
+
+        updateUserForPeriod(user, "daily", today);
+        updateUserForPeriod(user, "weekly", today);
+        updateUserForPeriod(user, "monthly", today);
+    }
+
+    private void updateUserForPeriod(User user, String period, LocalDate date) {
+        String periodKey = LeaderboardScheduler.buildPeriodKey(period, date);
+        LocalDateTime[] range = getDateRange(period, date);
+
+        // Get this user's total seconds for the period
+        Long totalSeconds = pomodoroRepository.sumDurationSecondsByUserIdAndDateRange(
+                user.getId(), range[0], range[1]);
+        if (totalSeconds == null) totalSeconds = 0L;
+
+        if (totalSeconds < 60) {
+            // User has no qualifying time, remove their entry if exists
+            Optional<LeaderboardEntry> existing = leaderboardRepository.findByPeriodKeyAndUserId(periodKey, user.getId());
+            existing.ifPresent(e -> leaderboardRepository.delete(e));
+            reRankPeriod(periodKey);
+            return;
+        }
+
+        long totalMinutes = totalSeconds / 60;
+
+        // Upsert: find existing or create new
+        LeaderboardEntry entry = leaderboardRepository.findByPeriodKeyAndUserId(periodKey, user.getId())
+                .orElse(LeaderboardEntry.builder()
+                        .user(user)
+                        .period(period)
+                        .periodKey(periodKey)
+                        .createdAt(LocalDateTime.now())
+                        .build());
+
+        entry.setTotalSeconds(totalSeconds);
+        entry.setTotalMinutes(totalMinutes);
+        entry.setUpdatedAt(LocalDateTime.now());
+        leaderboardRepository.save(entry);
+
+        // Re-rank all entries for this period
+        reRankPeriod(periodKey);
+
+        log.info("[LeaderboardService] Write-through: user={}, period={}, totalMin={}",
+                user.getId(), periodKey, totalMinutes);
+    }
+
+    /**
+     * Re-rank all entries for a period key by totalSeconds descending.
+     */
+    private void reRankPeriod(String periodKey) {
+        List<LeaderboardEntry> all = leaderboardRepository.findByPeriodKeyOrderByRankAsc(periodKey);
+        // Sort by totalSeconds desc (the query sorts by rank, we need to re-sort by score)
+        all.sort((a, b) -> Long.compare(
+                b.getTotalSeconds() != null ? b.getTotalSeconds() : 0,
+                a.getTotalSeconds() != null ? a.getTotalSeconds() : 0));
+
+        for (int i = 0; i < all.size(); i++) {
+            all.get(i).setRank(i + 1);
+        }
+        leaderboardRepository.saveAll(all);
+    }
+
+    private LocalDateTime[] getDateRange(String period, LocalDate date) {
+        LocalDateTime startDate;
+        LocalDateTime endDate;
+        switch (period.toLowerCase()) {
+            case "daily":
+                startDate = LocalDateTime.of(date, LocalTime.MIN);
+                endDate = LocalDateTime.of(date, LocalTime.MAX);
+                break;
+            case "weekly":
+                int dayOfWeek = date.getDayOfWeek().getValue() - 1;
+                LocalDate monday = date.minusDays(dayOfWeek);
+                startDate = LocalDateTime.of(monday, LocalTime.MIN);
+                endDate = LocalDateTime.of(monday.plusDays(6), LocalTime.MAX);
+                break;
+            case "monthly":
+                startDate = LocalDateTime.of(date.withDayOfMonth(1), LocalTime.MIN);
+                endDate = LocalDateTime.of(date.withDayOfMonth(1).plusMonths(1).minusDays(1), LocalTime.MAX);
+                break;
+            default:
+                startDate = LocalDateTime.of(date, LocalTime.MIN);
+                endDate = LocalDateTime.of(date, LocalTime.MAX);
+        }
+        return new LocalDateTime[]{startDate, endDate};
+    }
+
+    private LeaderboardEntryDto toDto(LeaderboardEntry entry) {
+        User user = entry.getUser();
+        String displayName = user.getFirstName() != null && user.getLastName() != null
+                ? (user.getFirstName() + " " + user.getLastName()).trim()
+                : (user.getFirstName() != null ? user.getFirstName()
+                : (user.getLastName() != null ? user.getLastName()
+                : user.getUsername()));
+
+        return LeaderboardEntryDto.builder()
+                .id(user.getId())
+                .userId(user.getId())
+                .username(user.getUsername())
+                .displayName(displayName)
+                .avatarUrl(user.getAvatarUrl())
+                .bio(user.getBio())
+                .level(user.getLevel() != null ? user.getLevel() : 1)
+                .totalMinutes(entry.getTotalMinutes() != null ? entry.getTotalMinutes() : 0)
+                .rank(entry.getRank())
+                .trend(entry.getTrend())
+                .previousRank(entry.getPreviousRank())
+                .build();
+    }
+
+    private List<Long> getFriendUserIds(Long userId) {
+        try {
+            User user = userRepository.findById(userId).orElse(null);
+            if (user == null) return new java.util.ArrayList<>();
+            return friendService.friends(user).stream()
+                    .map(dto -> dto.getId())
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.warn("[LeaderboardService] Error getting friends: {}", e.getMessage());
+            return new java.util.ArrayList<>();
+        }
+    }
+
+    // --- Legacy methods (kept for backward compat) ---
+
+    public Page<LeaderboardEntry> list(String period, Pageable pageable) {
+        return leaderboardRepository.findByPeriod(period, pageable);
     }
 }
+

@@ -28,6 +28,7 @@ public class PomodoroService {
 
     private final PomodoroRepository pomodoroRepository;
     private final UserStatsService userStatsService;
+    private final LeaderboardService leaderboardService;
 
     public Page<PomodoroSession> list(User user, Pageable pageable) {
         return pomodoroRepository.findByUserId(user.getId(), pageable);
@@ -57,12 +58,14 @@ public class PomodoroService {
         
         // update stats + XP/level
         if (isPartial) {
-            // Partial session: only time, XP, level, streak (no pomodoro count)
             userStatsService.applyPartialSession(user, endAt, durationMin * 60L);
         } else {
-            // Completed session: full credit
             userStatsService.applyCompletedSession(user, endAt, durationMin * 60L);
         }
+
+        // Write-through: update leaderboard cache immediately
+        leaderboardService.updateUserLeaderboard(user);
+
         return saved;
     }
 
@@ -142,13 +145,15 @@ public class PomodoroService {
         
         if (saved.getEndAt() != null && saved.getDurationSeconds() != null) {
             if (!interrupted) {
-                // Completed session: full credit
                 userStatsService.applyCompletedSession(user, saved.getEndAt(), saved.getDurationSeconds());
             } else {
-                // Interrupted session: partial credit (time, XP, level, streak, but no pomodoro count)
                 userStatsService.applyPartialSession(user, saved.getEndAt(), saved.getDurationSeconds());
             }
         }
+
+        // Write-through: update leaderboard cache immediately
+        leaderboardService.updateUserLeaderboard(user);
+
         return saved;
     }
 }

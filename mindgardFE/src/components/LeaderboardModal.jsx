@@ -9,6 +9,7 @@ export default function LeaderboardModal({ isOpen, onClose }) {
   const [activeFilter, setActiveFilter] = useState("daily"); // 'daily' | 'weekly' | 'monthly'
   const [currentDate, setCurrentDate] = useState(new Date());
   const [data, setData] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -29,25 +30,19 @@ export default function LeaderboardModal({ isOpen, onClose }) {
     setError("");
     try {
       console.log("[LeaderboardModal] Calling API...");
-      const entries = await leaderboardService.getRealLeaderboard(
+      const result = await leaderboardService.getRealLeaderboard(
         activeFilter,
         currentDate,
         activeTab
       );
-      console.log("[LeaderboardModal] API response:", {
-        entriesCount: entries?.length || 0,
-        entries: entries,
-      });
-      setData(entries || []);
+      console.log("[LeaderboardModal] API response:", result);
+      setData(result.entries || []);
+      setCurrentUser(result.currentUser || null);
     } catch (err) {
-      console.error("[LeaderboardModal] Error loading leaderboard:", {
-        error: err,
-        response: err?.response?.data,
-        status: err?.response?.status,
-        message: err?.message,
-      });
+      console.error("[LeaderboardModal] Error loading leaderboard:", err);
       setError(err?.response?.data?.message || err?.message || "Failed to load leaderboard");
       setData([]);
+      setCurrentUser(null);
     } finally {
       setLoading(false);
     }
@@ -150,11 +145,10 @@ export default function LeaderboardModal({ isOpen, onClose }) {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center">
-      <div 
-        className={`absolute inset-0 backdrop-blur-sm transition-all ${
-          profileUser ? 'bg-black/20 pointer-events-none' : 'bg-black/60'
-        }`} 
-        onClick={profileUser ? undefined : onClose} 
+      <div
+        className={`absolute inset-0 backdrop-blur-sm transition-all ${profileUser ? 'bg-black/20 pointer-events-none' : 'bg-black/60'
+          }`}
+        onClick={profileUser ? undefined : onClose}
       />
       <div className="relative w-full max-w-4xl bg-black/30 backdrop-blur-2xl border border-white/20 rounded-2xl shadow-2xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
@@ -164,22 +158,20 @@ export default function LeaderboardModal({ isOpen, onClose }) {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setActiveTab("global")}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  activeTab === "global"
-                    ? "bg-white/20 text-white border-b-2 border-white"
-                    : "text-white/60 hover:text-white/80"
-                }`}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === "global"
+                  ? "bg-white/20 text-white border-b-2 border-white"
+                  : "text-white/60 hover:text-white/80"
+                  }`}
               >
                 <Globe className="w-4 h-4" />
                 Global
               </button>
               <button
                 onClick={() => setActiveTab("friends")}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  activeTab === "friends"
-                    ? "bg-white/20 text-white border-b-2 border-white"
-                    : "text-white/60 hover:text-white/80"
-                }`}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === "friends"
+                  ? "bg-white/20 text-white border-b-2 border-white"
+                  : "text-white/60 hover:text-white/80"
+                  }`}
               >
                 <Users className="w-4 h-4" />
                 Friends
@@ -218,11 +210,10 @@ export default function LeaderboardModal({ isOpen, onClose }) {
                 <button
                   key={filter}
                   onClick={() => setActiveFilter(filter)}
-                  className={`px-3 py-1.5 rounded text-xs font-medium transition-colors capitalize ${
-                    activeFilter === filter
-                      ? "bg-white/20 text-white"
-                      : "text-white/60 hover:text-white/80"
-                  }`}
+                  className={`px-3 py-1.5 rounded text-xs font-medium transition-colors capitalize ${activeFilter === filter
+                    ? "bg-white/20 text-white"
+                    : "text-white/60 hover:text-white/80"
+                    }`}
                 >
                   {filter}
                 </button>
@@ -240,7 +231,7 @@ export default function LeaderboardModal({ isOpen, onClose }) {
         </div>
 
         {/* Leaderboard Content */}
-        <div className="flex-1 overflow-y-auto custom-scroll p-6">
+        <div className="flex-1 overflow-y-auto custom-scroll p-6 min-h-[400px]">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-white" />
@@ -291,8 +282,8 @@ export default function LeaderboardModal({ isOpen, onClose }) {
                           <span className="text-white font-medium">{entry.rank}</span>
                           {entry.trend && (
                             <span className="flex items-center" title={
-                              entry.previousRank 
-                                ? `Previous rank: ${entry.previousRank}` 
+                              entry.previousRank
+                                ? `Previous rank: ${entry.previousRank}`
                                 : "New entry"
                             }>
                               {entry.trend === "up" && (
@@ -344,6 +335,66 @@ export default function LeaderboardModal({ isOpen, onClose }) {
           )}
         </div>
 
+        {/* Pinned Current User Row */}
+        {currentUser && !loading && !error && (
+          <div className="border-t border-white/20 bg-white/5 px-6 py-2">
+            <table className="w-full">
+              <tbody>
+                {(() => {
+                  const entry = currentUser;
+                  const avatarValue = entry.avatarUrl;
+                  const displayName = entry.displayName || entry.username || "You";
+                  const avatarDisplay = typeof avatarValue === "string" && (avatarValue.startsWith("http") || avatarValue.startsWith("data:") || avatarValue.startsWith("/"))
+                    ? avatarValue
+                    : String(displayName).charAt(0).toUpperCase();
+                  return (
+                    <tr className="bg-purple-500/10 rounded-lg">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-purple-300 font-bold">{entry.rank || "-"}</span>
+                          {entry.trend && (
+                            <span className="flex items-center">
+                              {entry.trend === "up" && <ArrowUp className="w-4 h-4 text-green-400" />}
+                              {entry.trend === "down" && <ArrowDown className="w-4 h-4 text-red-400" />}
+                              {entry.trend === "stable" && <Minus className="w-4 h-4 text-gray-400" />}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 overflow-hidden flex items-center justify-center text-white font-semibold text-sm ring-2 ring-purple-400/50">
+                            {typeof avatarValue === "string" && (avatarValue.startsWith("http") || avatarValue.startsWith("data:") || avatarValue.startsWith("/")) ? (
+                              <img src={avatarValue} alt={displayName} className="w-full h-full object-cover" />
+                            ) : (
+                              <span>{avatarDisplay}</span>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-purple-200 font-semibold text-sm">{displayName}</span>
+                              <span className="px-1.5 py-0.5 text-[10px] rounded bg-purple-500/30 text-purple-300 font-medium">YOU</span>
+                              {entry.level && (
+                                <span className="px-1.5 py-0.5 text-xs rounded bg-white/10 text-white/80">LV.{entry.level}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <span className="text-purple-200 font-medium text-sm">{formatTime(entry.totalMinutes || 0)}</span>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <span className="text-white/30 text-sm">-</span>
+                      </td>
+                    </tr>
+                  );
+                })()}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         {/* Custom Scrollbar Styling */}
         <style>{`
           .custom-scroll::-webkit-scrollbar{width:8px;height:8px}
@@ -359,7 +410,7 @@ export default function LeaderboardModal({ isOpen, onClose }) {
           onClose={() => setProfileUser(null)}
           user={profileUser}
           year={new Date().getFullYear()}
-          onYearChange={() => {}}
+          onYearChange={() => { }}
         />
       )}
     </div>
