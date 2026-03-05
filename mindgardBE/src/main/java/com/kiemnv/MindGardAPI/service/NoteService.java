@@ -30,6 +30,9 @@ public class NoteService {
     @Transactional
     public Note create(User user, Note note) {
         note.setUser(user);
+        if (note.getPinned() == null) {
+            note.setPinned(false);
+        }
         note.setCreatedAt(LocalDateTime.now());
         note.setUpdatedAt(LocalDateTime.now());
         return noteRepository.save(note);
