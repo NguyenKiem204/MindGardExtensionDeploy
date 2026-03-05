@@ -11,6 +11,7 @@ import SubscriptionModal from "./SubscriptionModal";
 import { Play, Pause, SkipForward, Settings, Volume2, Image, MessageCircle, Zap, Clock, Music, Video, Grid3x3, StickyNote, BarChart3, MoreHorizontal, Minus, Maximize2, Square, X } from "lucide-react";
 import { authService } from "../services/authService";
 import { pomodoroService } from "../services/pomodoroService";
+import { getLunarDateString } from "../utils/lunarCalendar";
 
 export default function StudyFocusUI({ forceShowLogin = false }) {
   const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes in seconds
@@ -46,6 +47,15 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
   const [userName, setUserName] = useState("kiem");
   const [accountType, setAccountType] = useState("Guest Account");
   const [avatarError, setAvatarError] = useState(false);
+  const [mainDisplayMode, setMainDisplayMode] = useState('pomodoro'); // 'pomodoro' | 'clock'
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Pomodoro Settings
+  const [timerSoundEnabled, setTimerSoundEnabled] = useState(true);
+  const [autoStartEnabled, setAutoStartEnabled] = useState(true);
+  const [hideSecondsEnabled, setHideSecondsEnabled] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Check authentication on mount and when auth changes
   useEffect(() => {
@@ -88,6 +98,11 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
   const pipRenderIntervalRef = useRef(null);
   const docPipWindowRef = useRef(null);
   const isDocPipActiveRef = useRef(false);
+
+  // Tab & Sync management
+  const tabIdRef = useRef(Math.random().toString(36).substring(2, 9));
+  const lastStorageUpdateRef = useRef(0);
+
   // Refs to keep latest state for PiP renderer without re-creating PiP
   const timeLeftRef = useRef(timeLeft);
   const isRunningRef = useRef(isRunning);
@@ -114,6 +129,14 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
         if (data.currentFocusTopic) setFocusTopic(data.currentFocusTopic);
       } catch { }
     })();
+  }, []);
+
+  // Ticker for digital clock mode
+  useEffect(() => {
+    const ticker = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(ticker);
   }, []);
 
   // Load user info from auth service
@@ -619,16 +642,71 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
     }
   };
 
-  // Load saved background on component mount
+  // Load saved settings on component mount
   useEffect(() => {
     const savedBackgroundType = localStorage.getItem('mindgard_background_type');
     const savedBackgroundUrl = localStorage.getItem('mindgard_background_url');
 
     if (savedBackgroundType && savedBackgroundUrl) {
-      console.log('Loading saved background:', { type: savedBackgroundType, url: savedBackgroundUrl });
       setBackgroundType(savedBackgroundType);
       setBackgroundUrl(savedBackgroundUrl);
     }
+
+    // Load Pomodoro Settings
+    const savedSettings = localStorage.getItem('mindgard_pomodoro_settings');
+    if (savedSettings) {
+      try {
+        const settings = JSON.parse(savedSettings);
+        if (settings.timerSoundEnabled !== undefined) setTimerSoundEnabled(settings.timerSoundEnabled);
+        if (settings.autoStartEnabled !== undefined) setAutoStartEnabled(settings.autoStartEnabled);
+        if (settings.hideSecondsEnabled !== undefined) setHideSecondsEnabled(settings.hideSecondsEnabled);
+        if (settings.notificationsEnabled !== undefined) setNotificationsEnabled(settings.notificationsEnabled);
+      } catch (e) {
+        console.error("Failed to load Pomodoro settings:", e);
+      }
+    }
+  }, []);
+
+  // Save Pomodoro Settings when they change
+  useEffect(() => {
+    const settings = {
+      timerSoundEnabled,
+      autoStartEnabled,
+      hideSecondsEnabled,
+      notificationsEnabled
+    };
+    localStorage.setItem('mindgard_pomodoro_settings', JSON.stringify(settings));
+  }, [timerSoundEnabled, autoStartEnabled, hideSecondsEnabled, notificationsEnabled]);
+
+  // Bootstrapping: Load active session from chrome.storage.session
+  useEffect(() => {
+    (async () => {
+      if (window.chrome?.storage?.session) {
+        try {
+          const data = await window.chrome.storage.session.get([
+            'timerTimeLeft', 'timerRunning', 'timerFocusMode',
+            'timerFocusDuration', 'timerBreakDuration', 'lastUpdated'
+          ]);
+
+          if (data.lastUpdated) {
+            if (data.timerFocusDuration) setFocusDuration(data.timerFocusDuration);
+            if (data.timerBreakDuration) setBreakDuration(data.timerBreakDuration);
+            if (data.timerFocusMode !== undefined) setIsFocusMode(data.timerFocusMode);
+            if (data.timerTimeLeft !== undefined) setTimeLeft(data.timerTimeLeft);
+            if (data.timerRunning !== undefined) {
+              setIsRunning(data.timerRunning);
+              if (data.timerRunning && data.timerTimeLeft !== undefined) {
+                endTimeRef.current = Date.now() + data.timerTimeLeft * 1000;
+              }
+            }
+            lastStorageUpdateRef.current = data.lastUpdated;
+          }
+        } catch (e) {
+          console.error("Bootstrapping failed:", e);
+        }
+      }
+      setIsInitialized(true);
+    })();
   }, []);
 
   const tags = ["Work", "Study", "Exercise", "Reading", "Coding", "Writing"];
@@ -657,9 +735,14 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
     { id: "wind", emoji: "💨", name: "Wind" }
   ];
 
-  // Sync timer state to chrome.storage for mini window (and listen for changes from mini window)
+  // Sync timer state to chrome.storage for mini window and multi-tab sync
   useEffect(() => {
+    if (!isInitialized) return;
+
     if (window.chrome?.storage?.session) {
+      const now = Date.now();
+      lastStorageUpdateRef.current = now;
+
       window.chrome.storage.session.set({
         timerTimeLeft: timeLeft,
         timerRunning: isRunning,
@@ -667,25 +750,45 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
         timerFocusDuration: focusDuration,
         timerBreakDuration: breakDuration,
         timerTaskInput: taskInput,
-        timerBackgroundUrl: backgroundUrl
+        timerBackgroundUrl: backgroundUrl,
+        lastUpdated: now,
+        sourceTabId: tabIdRef.current
       });
     }
-  }, [timeLeft, isRunning, isFocusMode, focusDuration, breakDuration, taskInput, backgroundUrl]);
+  }, [timeLeft, isRunning, isFocusMode, focusDuration, breakDuration, taskInput, backgroundUrl, isInitialized]);
 
-  // Listen for changes from mini window
+  // Listen for changes from other tabs or mini window
   useEffect(() => {
     if (!window.chrome?.storage?.onChanged) return;
 
     const listener = (changes, areaName) => {
       if (areaName === 'session') {
-        if (changes.timerRunning && changes.timerRunning.newValue !== isRunning) {
-          setIsRunning(changes.timerRunning.newValue);
+        const data = changes;
+        const sourceTabId = data.sourceTabId?.newValue;
+        const lastUpdated = data.lastUpdated?.newValue;
+
+        // Skip if update is from this tab
+        if (sourceTabId === tabIdRef.current) return;
+
+        // Skip if incoming update is older than our last broadcast
+        if (lastUpdated && lastUpdated <= lastStorageUpdateRef.current) return;
+
+        if (data.timerRunning && data.timerRunning.newValue !== isRunning) {
+          const nextRunning = data.timerRunning.newValue;
+          setIsRunning(nextRunning);
+          if (!nextRunning) {
+            endTimeRef.current = null;
+          }
         }
-        if (changes.timerFocusMode && changes.timerFocusMode.newValue !== isFocusMode) {
-          setIsFocusMode(changes.timerFocusMode.newValue);
+        if (data.timerFocusMode && data.timerFocusMode.newValue !== isFocusMode) {
+          setIsFocusMode(data.timerFocusMode.newValue);
         }
-        if (changes.timerTimeLeft && changes.timerTimeLeft.newValue !== timeLeft) {
-          setTimeLeft(changes.timerTimeLeft.newValue);
+        if (data.timerTimeLeft && Math.abs(data.timerTimeLeft.newValue - timeLeft) > 1) {
+          setTimeLeft(data.timerTimeLeft.newValue);
+          // Sync endTimeRef if running
+          if (isRunning) {
+            endTimeRef.current = Date.now() + data.timerTimeLeft.newValue * 1000;
+          }
         }
       }
     };
@@ -713,9 +816,28 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
         const remainingSec = Math.max(0, Math.floor((remainingMs + 999) / 1000));
         setTimeLeft(remainingSec);
         if (remainingSec <= 0) {
-          // Session finished → switch mode
+          // Session finished
           setIsRunning(false);
           const completedMin = isFocusMode ? focusDuration : breakDuration;
+
+          // Sound effect
+          if (timerSoundEnabled) {
+            const chime = new Audio("https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg");
+            chime.volume = 0.5;
+            chime.play().catch(e => console.warn("Failed to play chime:", e));
+          }
+
+          // Browser notification
+          if (notificationsEnabled) {
+            if (Notification.permission === "granted") {
+              new Notification("MindGard Focus", {
+                body: isFocusMode ? "Focus session finished! Time for a break." : "Break finished! Back to work.",
+                icon: "/logo.png"
+              });
+            } else if (Notification.permission !== "denied") {
+              Notification.requestPermission();
+            }
+          }
 
           // Record completed session if focus mode
           if (isFocusMode && authService.isAuthenticated()) {
@@ -726,9 +848,8 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
                   dateISO,
                   durationMin: completedMin,
                   taskTitle: taskInput || "Deep work",
-                  isPartial: false, // Completed session
+                  isPartial: false,
                 });
-                console.log(`[StudyFocusUI] Recorded completed session: ${completedMin} minutes`);
               } catch (e) {
                 console.error("[StudyFocusUI] Failed to record completed session:", e);
               }
@@ -741,12 +862,17 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
 
           endTimeRef.current = null;
           startTimeRef.current = null;
-          if (isFocusMode) {
-            setIsFocusMode(false);
-            setTimeLeft(breakDuration * 60);
-          } else {
-            setIsFocusMode(true);
-            setTimeLeft(focusDuration * 60);
+
+          const nextIsFocus = !isFocusMode;
+          setIsFocusMode(nextIsFocus);
+          const nextDuration = nextIsFocus ? focusDuration : breakDuration;
+          setTimeLeft(nextDuration * 60);
+
+          // Auto-start next session
+          if (autoStartEnabled) {
+            setTimeout(() => {
+              toggleTimer();
+            }, 1000); // Small delay for UI clarity
           }
         }
       }, 250);
@@ -771,16 +897,27 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
   }, [backgroundType, backgroundUrl]);
 
   const formatTime = (seconds) => {
+    if (hideSecondsEnabled) {
+      const mins = Math.ceil(seconds / 60);
+      return `${mins}m`;
+    }
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Progress for circular arc (0..1) based on real time instead of rounded seconds
+  // Progress for circular arc (0..1)
   const getProgress = () => {
     const totalSec = (isFocusMode ? focusDuration : breakDuration) * 60;
     if (totalSec <= 0) return 0;
-    const remainingMs = endTimeRef.current ? Math.max(0, endTimeRef.current - Date.now()) : Math.max(0, timeLeft * 1000);
+
+    // If not running, use static timeLeft to prevent ring glitches
+    if (!isRunning || !endTimeRef.current) {
+      const p = 1 - timeLeft / totalSec;
+      return Math.min(1, Math.max(0, p));
+    }
+
+    const remainingMs = Math.max(0, endTimeRef.current - Date.now());
     const p = 1 - remainingMs / (totalSec * 1000);
     return Math.min(1, Math.max(0, p));
   };
@@ -858,7 +995,8 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
       if (isFocusMode && window.chrome?.storage?.local) {
         window.chrome.storage.local.set({ focusSessionActive: false });
       }
-      // Keep endTimeRef for resume, but reset startTimeRef
+      // CRITICAL: Clear endTimeRef on pause to fix visual glitches
+      endTimeRef.current = null;
       startTimeRef.current = null;
     }
   };
@@ -909,6 +1047,55 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
       if (isRunning) {
         endTimeRef.current = Date.now() + newBreakTime * 60 * 1000;
       }
+    }
+  };
+
+  const handleCompleteTimer = () => {
+    setIsRunning(false);
+    const completedMin = isFocusMode ? focusDuration : breakDuration;
+    if (isFocusMode && authService.isAuthenticated()) {
+      (async () => {
+        try {
+          await pomodoroService.record({
+            dateISO: new Date().toISOString(),
+            durationMin: completedMin,
+            taskTitle: taskInput || "Deep work",
+            isPartial: false,
+          });
+        } catch (e) { console.error("Failed to record session:", e); }
+      })();
+    }
+    if (isFocusMode && window.chrome?.storage?.local) {
+      window.chrome.storage.local.set({ focusSessionActive: false });
+    }
+    endTimeRef.current = null;
+    startTimeRef.current = null;
+    if (isFocusMode) {
+      setIsFocusMode(false);
+      setTimeLeft(breakDuration * 60);
+    } else {
+      setIsFocusMode(true);
+      setTimeLeft(focusDuration * 60);
+    }
+  };
+
+  const handleRestartTimer = () => {
+    const sec = (isFocusMode ? focusDuration : breakDuration) * 60;
+    setTimeLeft(sec);
+    if (isRunning) {
+      endTimeRef.current = Date.now() + sec * 1000;
+      startTimeRef.current = Date.now();
+    } else {
+      endTimeRef.current = null;
+      startTimeRef.current = null;
+    }
+  };
+
+  const handleAdd10Min = () => {
+    const newTime = timeLeft + 10 * 60;
+    setTimeLeft(newTime);
+    if (isRunning) {
+      endTimeRef.current = (endTimeRef.current || Date.now()) + 10 * 60 * 1000;
     }
   };
 
@@ -1263,7 +1450,7 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
               </svg>
             )}
           </button>
-          <div className="flex items-center gap-2 px-3 py-2 bg-white/20 rounded-lg backdrop-blur-md border border-white/30">
+          <div className="flex items-center gap-2 px-3 py-2 bg-black/20 rounded-lg border border-white/10">
             <Clock className="w-4 h-4" />
             <span className="text-sm font-medium">{breakTime}m</span>
           </div>
@@ -1275,13 +1462,13 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
                 setIsLeaderboardModalOpen(true);
               }
             }}
-            className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition backdrop-blur-md border border-white/30"
+            className="p-2 bg-black/20 hover:bg-black/50 rounded-lg transition border border-white/10"
           >
             <BarChart3 className="w-5 h-5" />
           </button>
           <button
             onClick={resetToDefaultBackground}
-            className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition backdrop-blur-md border border-white/30"
+            className="p-2 bg-black/20 hover:bg-black/50 rounded-lg transition border border-white/10"
             title="Reset to default room"
           >
             <Video className="w-5 h-5" />
@@ -1291,7 +1478,7 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
               console.log('Opening scene modal...');
               setIsSceneModalOpen(true);
             }}
-            className="px-4 py-2 bg-white/20 rounded-lg backdrop-blur-md border border-white/30 hover:bg-white/30 transition"
+            className="px-4 py-2 bg-black/20 rounded-lg border border-white/10 hover:bg-black/50 transition"
           >
             <span className="text-sm font-medium">{backgroundType === "room" ? "User's room" : "Custom scene"}</span>
           </button>
@@ -1438,6 +1625,7 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
                 stroke="rgba(255,255,255,0.2)"
                 strokeWidth="2.5"
                 fill="none"
+                className={`transition-opacity duration-300 ${mainDisplayMode === 'clock' ? 'opacity-0' : 'opacity-100'}`}
               />
               {/* Progress circle with 300 degree arc */}
               <path
@@ -1448,83 +1636,102 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
                 strokeLinecap="round"
                 strokeDasharray={`${2 * Math.PI * 45 * (300 / 360)}`}
                 strokeDashoffset={`${2 * Math.PI * 45 * (300 / 360) * (1 - getProgress())}`}
-                className="transition-all duration-1000 ease-linear"
+                className={`transition-all duration-1000 ease-linear ${mainDisplayMode === 'clock' ? 'opacity-0' : 'opacity-100'}`}
               />
             </svg>
 
             {/* Timer Text */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              {/* Mode Indicator */}
-              <div className="mb-4 flex items-center gap-6">
-                <button
-                  onClick={handleModeSwitch}
-                  className={`text-2xl font-medium transition-colors ${isFocusMode ? 'text-white' : 'text-white/50'}`}
-                >
-                  FOCUS
-                </button>
-                <button
-                  onClick={handleModeSwitch}
-                  className={`text-2xl font-medium transition-colors ${!isFocusMode ? 'text-white' : 'text-white/50'}`}
-                >
-                  BREAK
-                </button>
-              </div>
-
-              {/* Timer */}
-              <div className="relative flex items-center justify-center mb-6">
-                <div className="text-8xl font-bold text-white leading-none tracking-tight drop-shadow-lg">
-                  {formatTime(timeLeft)}
-                </div>
-                {/* Settings Button - appears on hover */}
-                {showSettingsButton && (
-                  <button
-                    ref={settingsButtonRef}
-                    onClick={handleSettingsClick}
-                    className="absolute left-full ml-4 w-8 h-8 bg-gray-800/80 hover:bg-gray-700 rounded-full flex items-center justify-center text-white transition-all duration-200"
-                  >
-                    <MoreHorizontal className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-
-              {/* Task Input inside circle */}
-              <div className="w-80 text-center mb-4">
-                {!showTaskInput ? (
-                  <button
-                    onClick={() => setShowTaskInput(true)}
-                    className="text-white/90 hover:text-white transition text-xl underline decoration-white/30 hover:decoration-white/60"
-                  >
-                    I will focus on...
-                  </button>
-                ) : (
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={taskInput}
-                      onChange={(e) => setTaskInput(e.target.value)}
-                      placeholder="I will focus on..."
-                      className="bg-transparent text-white text-xl text-center outline-none border-none w-full placeholder:text-white/60 underline decoration-white/30 focus:decoration-white/60"
-                      autoFocus
-                      onBlur={() => setShowTaskInput(false)}
-                    />
+              {/* Mode Indicator & Timer/Clock */}
+              {mainDisplayMode === 'pomodoro' ? (
+                <>
+                  <div className="mb-4 flex items-center gap-6">
+                    <button
+                      onClick={handleModeSwitch}
+                      className={`text-2xl font-medium transition-colors ${isFocusMode ? 'text-white' : 'text-white/50'}`}
+                    >
+                      FOCUS
+                    </button>
+                    <button
+                      onClick={handleModeSwitch}
+                      className={`text-2xl font-medium transition-colors ${!isFocusMode ? 'text-white' : 'text-white/50'}`}
+                    >
+                      BREAK
+                    </button>
                   </div>
-                )}
-              </div>
 
-              {/* Play/Pause/Stop Button */}
-              <button
-                onClick={toggleTimer}
-                className={`p-4 rounded-full text-white transition shadow-lg flex items-center justify-center ${isRunning
-                  ? 'bg-blue-500 hover:bg-blue-600'
-                  : 'bg-orange-500 hover:bg-orange-600'
-                  }`}
-              >
-                {isRunning ? (
-                  <Pause className="w-6 h-6" />
-                ) : (
-                  <Play className="w-6 h-6" />
-                )}
-              </button>
+                  <div className="relative flex items-center justify-center mb-6">
+                    <div className="text-8xl font-bold text-white leading-none tracking-tight drop-shadow-lg">
+                      {formatTime(timeLeft)}
+                    </div>
+                    {/* Settings Button - appears on hover */}
+                    {showSettingsButton && (
+                      <button
+                        ref={settingsButtonRef}
+                        onClick={handleSettingsClick}
+                        className="absolute left-full ml-4 w-8 h-8 bg-gray-800/80 hover:bg-gray-700 rounded-full flex items-center justify-center text-white transition-all duration-200"
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="mb-8 flex flex-col items-center">
+                  <div className="text-9xl font-bold text-white leading-none tracking-tight drop-shadow-2xl">
+                    {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+                  </div>
+                  <div className="mt-4 text-2xl text-white/70 font-medium tracking-widest uppercase">
+                    {currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
+                  </div>
+                  <div className="mt-2 text-xl text-white/50 font-medium italic">
+                    {getLunarDateString(currentTime)}
+                  </div>
+                </div>
+              )}
+
+              {/* Task Input inside circle - only in pomodoro mode */}
+              {mainDisplayMode === 'pomodoro' && (
+                <div className="w-80 text-center mb-4">
+                  {!showTaskInput ? (
+                    <button
+                      onClick={() => setShowTaskInput(true)}
+                      className="text-white/90 hover:text-white transition text-xl underline decoration-white/30 hover:decoration-white/60"
+                    >
+                      I will focus on...
+                    </button>
+                  ) : (
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={taskInput}
+                        onChange={(e) => setTaskInput(e.target.value)}
+                        placeholder="I will focus on..."
+                        className="bg-transparent text-white text-xl text-center outline-none border-none w-full placeholder:text-white/60 underline decoration-white/30 focus:decoration-white/60"
+                        autoFocus
+                        onBlur={() => setShowTaskInput(false)}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Play/Pause/Stop Button - only in pomodoro mode */}
+              {mainDisplayMode === 'pomodoro' && (
+                <button
+                  onClick={toggleTimer}
+                  className={`p-4 rounded-full text-white transition shadow-lg flex items-center justify-center ${isRunning
+                    ? 'bg-blue-500 hover:bg-blue-600'
+                    : 'bg-orange-500 hover:bg-orange-600'
+                    }`}
+                >
+                  {isRunning ? (
+                    <Pause className="w-6 h-6" />
+                  ) : (
+                    <Play className="w-6 h-6" />
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1535,14 +1742,14 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
       <nav className="absolute bottom-8 left-8 flex gap-3">
         <button
           onClick={() => setIsNoteModalOpen(true)}
-          className="p-4 bg-slate-500/60 hover:bg-slate-500/70 rounded-2xl backdrop-blur-md transition"
+          className="p-4 bg-black/20 hover:bg-black/50 rounded-2xl transition border border-white/10"
           title="Smart Notes"
         >
           <StickyNote className="w-5 h-5 text-white/90" />
         </button>
         <button
           onClick={() => setIsSoundsModalOpen(true)}
-          className="p-4 bg-slate-500/60 hover:bg-slate-500/70 rounded-2xl backdrop-blur-md transition"
+          className="p-4 bg-black/20 hover:bg-black/50 rounded-2xl transition border border-white/10"
         >
           <Music className="w-5 h-5 text-white/90" />
         </button>
@@ -1551,29 +1758,47 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
             console.log('Opening scene modal from bottom left...');
             setIsSceneModalOpen(true);
           }}
-          className="p-4 bg-slate-500/60 hover:bg-slate-500/70 rounded-2xl backdrop-blur-md transition"
+          className="p-4 bg-black/20 hover:bg-black/50 rounded-2xl transition border border-white/10"
         >
           <Image className="w-5 h-5 text-white/90" />
         </button>
-        <button className="p-4 bg-slate-500/60 hover:bg-slate-500/70 rounded-2xl backdrop-blur-md transition">
+        <button className="p-4 bg-black/20 hover:bg-black/50 rounded-2xl transition border border-white/10">
           <MessageCircle className="w-5 h-5 text-white/90" />
         </button>
-        <button className="p-4 bg-slate-500/60 hover:bg-slate-500/70 rounded-2xl backdrop-blur-md transition">
+        <button className="p-4 bg-black/20 hover:bg-black/50 rounded-2xl transition border border-white/10">
           <Grid3x3 className="w-5 h-5 text-white/90" />
         </button>
       </nav>
 
-      {/* Bottom Right Actions */}
-      <div className="absolute bottom-8 right-8 flex gap-3">
-        <button className="p-3.5 bg-white/20 hover:bg-white/30 rounded-xl backdrop-blur-md transition border border-white/30">
-          <MessageCircle className="w-5 h-5 text-white" />
-        </button>
-        <button className="p-3.5 bg-pink-500 hover:bg-pink-600 rounded-xl backdrop-blur-md transition shadow-lg">
-          <Zap className="w-5 h-5 text-white" />
-        </button>
-        <button className="p-3.5 bg-white/20 hover:bg-white/30 rounded-xl backdrop-blur-md transition border border-white/30">
-          <Clock className="w-5 h-5 text-white" />
-        </button>
+      {/* Bottom Right Mode Switcher */}
+      <div className="absolute bottom-8 right-8">
+        <div className="bg-black/30 backdrop-blur-xl rounded-md flex items-end p-0 gap-1 shadow-lg border border-white/10 relative h-[28px] sm:h-[35px]">
+          {/* Sliding Highlight */}
+          <div
+            className="absolute top-0 bottom-0 rounded-md z-0 bg-gradient-to-tr from-white/70 via-pink-100 to-pink-300 transition-all duration-300 ease-in-out"
+            style={{
+              left: mainDisplayMode === 'pomodoro' ? '0' : '50%',
+              width: '50%',
+              pointerEvents: 'none'
+            }}
+          />
+
+          <button
+            onClick={() => setMainDisplayMode('pomodoro')}
+            className={`px-2 sm:px-3 py-1 rounded-md text-sm font-semibold transition-all duration-200 flex justify-center relative z-10 cursor-pointer ${mainDisplayMode === 'pomodoro' ? 'text-black' : 'text-white hover:text-white/80'
+              }`}
+          >
+            <Zap className={`w-4 h-4 sm:w-5 sm:h-5 transition-colors duration-200 ${mainDisplayMode === 'pomodoro' ? 'text-black' : 'text-white'}`} />
+          </button>
+
+          <button
+            onClick={() => setMainDisplayMode('clock')}
+            className={`px-2 sm:px-3 py-1 rounded-md text-sm font-semibold transition-all duration-200 flex justify-center relative z-10 cursor-pointer ${mainDisplayMode === 'clock' ? 'text-black' : 'text-white hover:text-white/80'
+              }`}
+          >
+            <Clock className={`w-4 h-4 sm:w-5 sm:h-5 transition-colors duration-200 ${mainDisplayMode === 'clock' ? 'text-black' : 'text-white'}`} />
+          </button>
+        </div>
       </div>
 
       {/* Scene Selection Modal */}
@@ -1604,6 +1829,23 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
         breakTime={breakDuration}
         onFocusTimeChange={handleFocusTimeChange}
         onBreakTimeChange={handleBreakTimeChange}
+        onComplete={handleCompleteTimer}
+        onRestart={handleRestartTimer}
+        onAdd10Min={handleAdd10Min}
+        // New settings props
+        timerSoundEnabled={timerSoundEnabled}
+        onTimerSoundToggle={() => setTimerSoundEnabled(!timerSoundEnabled)}
+        autoStartEnabled={autoStartEnabled}
+        onAutoStartToggle={() => setAutoStartEnabled(!autoStartEnabled)}
+        hideSecondsEnabled={hideSecondsEnabled}
+        onHideSecondsToggle={() => setHideSecondsEnabled(!hideSecondsEnabled)}
+        notificationsEnabled={notificationsEnabled}
+        onNotificationsToggle={() => {
+          if (!notificationsEnabled && Notification.permission !== "granted") {
+            Notification.requestPermission();
+          }
+          setNotificationsEnabled(!notificationsEnabled);
+        }}
       />
 
       {/* Focus Mode Modal - large centered */}

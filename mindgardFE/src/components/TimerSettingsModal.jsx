@@ -1,44 +1,59 @@
 import { useState } from "react";
 import { Clock, RotateCcw, FastForward, Plus, X } from "lucide-react";
 
-export default function TimerSettingsModal({ isOpen, onClose, position = { x: 0, y: 0 }, focusTime, breakTime, onFocusTimeChange, onBreakTimeChange }) {
+export default function TimerSettingsModal({
+  isOpen,
+  onClose,
+  position = { x: 0, y: 0 },
+  focusTime,
+  breakTime,
+  onFocusTimeChange,
+  onBreakTimeChange,
+  onComplete,
+  onRestart,
+  onAdd10Min,
+  // New settings props
+  timerSoundEnabled,
+  onTimerSoundToggle,
+  autoStartEnabled,
+  onAutoStartToggle,
+  hideSecondsEnabled,
+  onHideSecondsToggle,
+  notificationsEnabled,
+  onNotificationsToggle
+}) {
   const [localFocusTime, setLocalFocusTime] = useState(focusTime);
   const [localBreakTime, setLocalBreakTime] = useState(breakTime);
-  const [timerSoundEffects, setTimerSoundEffects] = useState(true);
-  const [autoStartTimers, setAutoStartTimers] = useState(true);
-  const [hideSeconds, setHideSeconds] = useState(false);
-  const [browserNotifications, setBrowserNotifications] = useState(false);
 
   const handleSave = () => {
-    onFocusTimeChange(localFocusTime);
-    onBreakTimeChange(localBreakTime);
+    const f = Math.max(1, Math.min(999, parseInt(localFocusTime) || focusTime));
+    const b = Math.max(1, Math.min(999, parseInt(localBreakTime) || breakTime));
+    onFocusTimeChange(f);
+    onBreakTimeChange(b);
     onClose();
   };
 
   const handleCompleteTimer = () => {
-    // Logic to complete current timer
-    console.log('Complete timer');
+    onComplete?.();
     onClose();
   };
 
   const handleRestartTimer = () => {
-    // Logic to restart timer
-    console.log('Restart timer');
+    onRestart?.();
     onClose();
   };
 
   const handleAddTime = () => {
-    // Logic to add 10 minutes
-    console.log('Add 10 minutes');
+    onAdd10Min?.();
     onClose();
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50" onClick={onClose}>
-      <div 
-        className="absolute bg-gray-900/95 backdrop-blur-sm rounded-xl w-60 p-3 shadow-2xl border border-gray-700/50"
+    <div className="fixed inset-0 z-50 transition-all" onClick={onClose}>
+      <div
+        className="absolute bg-black/50 backdrop-blur-sm rounded-2xl w-64 p-4 shadow-2xl border border-white/10"
         style={{
           left: `${position.x}px`,
           top: `${position.y + 30}px`,
@@ -47,84 +62,106 @@ export default function TimerSettingsModal({ isOpen, onClose, position = { x: 0,
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-1.5">
-            <Clock className="w-3 h-3 text-white" />
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-white/90" />
             <h2 className="text-sm font-semibold text-white">Pomodoro</h2>
           </div>
           <button
             onClick={onClose}
-            className="w-5 h-5 rounded-full bg-gray-700 hover:bg-gray-600 flex items-center justify-center text-gray-300 hover:text-white transition-colors"
+            className="w-6 h-6 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/70 hover:text-white transition-all"
           >
-            <X className="w-2.5 h-2.5" />
+            <X className="w-3 h-3" />
           </button>
         </div>
 
         {/* Action Buttons */}
-        <div className="space-y-1.5 mb-3">
-          <button 
+        <div className="grid grid-cols-1 gap-2 mb-5">
+          <button
             onClick={handleCompleteTimer}
-            className="w-full flex items-center gap-1.5 px-2 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-md text-white transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-2 bg-black/20 hover:bg-black/50 rounded-xl text-white/90 transition-all border border-white/5"
           >
-            <FastForward className="w-2.5 h-2.5" />
+            <FastForward className="w-3 h-3" />
             <span className="text-xs font-medium">Complete</span>
           </button>
-          
-          <button 
+
+          <button
             onClick={handleRestartTimer}
-            className="w-full flex items-center gap-1.5 px-2 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-md text-white transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-2 bg-black/20 hover:bg-black/50 rounded-xl text-white/90 transition-all border border-white/5"
           >
-            <RotateCcw className="w-2.5 h-2.5" />
+            <RotateCcw className="w-3 h-3" />
             <span className="text-xs font-medium">Restart</span>
           </button>
-          
-          <button 
+
+          <button
             onClick={handleAddTime}
-            className="w-full flex items-center gap-1.5 px-2 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-md text-white transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-2 bg-black/20 hover:bg-black/50 rounded-xl text-white/90 transition-all border border-white/5"
           >
-            <Plus className="w-2.5 h-2.5" />
+            <Plus className="w-3 h-3" />
             <span className="text-xs font-medium">+10 min</span>
           </button>
         </div>
 
         {/* Duration Settings */}
-        <div className="space-y-2 mb-3">
+        <div className="space-y-4 mb-5">
+          {/* Focus Duration */}
           <div className="flex items-center justify-between">
-            <span className="text-white text-xs font-medium">Focus</span>
-            <div className="flex items-center gap-1">
-              <button 
-                onClick={() => setLocalFocusTime(Math.max(1, localFocusTime - 1))}
-                className="w-5 h-5 rounded-full bg-gray-700 hover:bg-gray-600 flex items-center justify-center text-white text-xs"
+            <span className="text-white/80 text-xs font-medium">Focus</span>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setLocalFocusTime(prev => Math.max(1, (parseInt(prev) || 0) - 1))}
+                className="w-7 h-7 rounded-lg bg-black/20 hover:bg-black/50 flex items-center justify-center text-white transition-all border border-white/5"
               >
                 -
               </button>
-              <span className="text-white text-xs font-medium min-w-[2rem] text-center">
-                {localFocusTime} min
-              </span>
-              <button 
-                onClick={() => setLocalFocusTime(Math.min(60, localFocusTime + 1))}
-                className="w-5 h-5 rounded-full bg-gray-700 hover:bg-gray-600 flex items-center justify-center text-white text-xs"
+              <div className="flex items-center bg-black/30 rounded-lg px-2 py-1 border border-white/5 min-w-[54px] justify-center text-center">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={localFocusTime}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "" || /^\d+$/.test(val)) setLocalFocusTime(val);
+                  }}
+                  className="bg-transparent text-white text-xs font-bold w-7 text-center outline-none"
+                />
+                <span className="text-white/30 text-[9px] ml-0.5 font-bold uppercase tracking-wider">m</span>
+              </div>
+              <button
+                onClick={() => setLocalFocusTime(prev => Math.min(999, (parseInt(prev) || 0) + 1))}
+                className="w-7 h-7 rounded-lg bg-black/20 hover:bg-black/50 flex items-center justify-center text-white transition-all border border-white/5"
               >
                 +
               </button>
             </div>
           </div>
-          
+
+          {/* Break Duration */}
           <div className="flex items-center justify-between">
-            <span className="text-white text-xs font-medium">Break</span>
-            <div className="flex items-center gap-1">
-              <button 
-                onClick={() => setLocalBreakTime(Math.max(1, localBreakTime - 1))}
-                className="w-5 h-5 rounded-full bg-gray-700 hover:bg-gray-600 flex items-center justify-center text-white text-xs"
+            <span className="text-white/80 text-xs font-medium">Break</span>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setLocalBreakTime(prev => Math.max(1, (parseInt(prev) || 0) - 1))}
+                className="w-7 h-7 rounded-lg bg-black/20 hover:bg-black/50 flex items-center justify-center text-white transition-all border border-white/5"
               >
                 -
               </button>
-              <span className="text-white text-xs font-medium min-w-[2rem] text-center">
-                {localBreakTime} min
-              </span>
-              <button 
-                onClick={() => setLocalBreakTime(Math.min(30, localBreakTime + 1))}
-                className="w-5 h-5 rounded-full bg-gray-700 hover:bg-gray-600 flex items-center justify-center text-white text-xs"
+              <div className="flex items-center bg-black/30 rounded-lg px-2 py-1 border border-white/5 min-w-[54px] justify-center text-center">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={localBreakTime}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "" || /^\d+$/.test(val)) setLocalBreakTime(val);
+                  }}
+                  className="bg-transparent text-white text-xs font-bold w-7 text-center outline-none"
+                />
+                <span className="text-white/30 text-[9px] ml-0.5 font-bold uppercase tracking-wider">m</span>
+              </div>
+              <button
+                onClick={() => setLocalBreakTime(prev => Math.min(999, (parseInt(prev) || 0) + 1))}
+                className="w-7 h-7 rounded-lg bg-black/20 hover:bg-black/50 flex items-center justify-center text-white transition-all border border-white/5"
               >
                 +
               </button>
@@ -133,70 +170,38 @@ export default function TimerSettingsModal({ isOpen, onClose, position = { x: 0,
         </div>
 
         {/* Toggle Settings */}
-        <div className="space-y-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-white text-xs font-medium">Sound effects</span>
-            <button
-              onClick={() => setTimerSoundEffects(!timerSoundEffects)}
-              className={`w-10 h-5 rounded-full transition-colors ${
-                timerSoundEffects ? 'bg-orange-500' : 'bg-gray-600'
-              }`}
-            >
-              <div className={`w-4 h-4 bg-white rounded-full transition-transform ${
-                timerSoundEffects ? 'translate-x-5' : 'translate-x-0.5'
-              }`} />
-            </button>
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <span className="text-white text-xs font-medium">Auto-start</span>
-            <button
-              onClick={() => setAutoStartTimers(!autoStartTimers)}
-              className={`w-10 h-5 rounded-full transition-colors ${
-                autoStartTimers ? 'bg-orange-500' : 'bg-gray-600'
-              }`}
-            >
-              <div className={`w-4 h-4 bg-white rounded-full transition-transform ${
-                autoStartTimers ? 'translate-x-5' : 'translate-x-0.5'
-              }`} />
-            </button>
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <span className="text-white text-xs font-medium">Hide seconds</span>
-            <button
-              onClick={() => setHideSeconds(!hideSeconds)}
-              className={`w-10 h-5 rounded-full transition-colors ${
-                hideSeconds ? 'bg-orange-500' : 'bg-gray-600'
-              }`}
-            >
-              <div className={`w-4 h-4 bg-white rounded-full transition-transform ${
-                hideSeconds ? 'translate-x-5' : 'translate-x-0.5'
-              }`} />
-            </button>
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <span className="text-white text-xs font-medium">Notifications</span>
-            <button
-              onClick={() => setBrowserNotifications(!browserNotifications)}
-              className={`w-10 h-5 rounded-full transition-colors ${
-                browserNotifications ? 'bg-orange-500' : 'bg-gray-600'
-              }`}
-            >
-              <div className={`w-4 h-4 bg-white rounded-full transition-transform ${
-                browserNotifications ? 'translate-x-5' : 'translate-x-0.5'
-              }`} />
-            </button>
-          </div>
+        <div className="space-y-3 pt-2 border-t border-white/5">
+          {[
+            { label: "Sound effects", value: timerSoundEnabled, setter: onTimerSoundToggle },
+            { label: "Auto-start", value: autoStartEnabled, setter: onAutoStartToggle },
+            { label: "Hide seconds", value: hideSecondsEnabled, setter: onHideSecondsToggle },
+            { label: "Notifications", value: notificationsEnabled, setter: onNotificationsToggle }
+          ].map((item, idx) => (
+            <div key={idx} className="flex items-center justify-between">
+              <span className="text-white/70 text-[11px] font-medium">{item.label}</span>
+              <div className="flex items-center gap-2">
+                <span className={`text-[9px] font-bold tracking-widest ${item.value ? 'text-orange-400' : 'text-white/20'}`}>
+                  {item.value ? 'ON' : 'OFF'}
+                </span>
+                <button
+                  onClick={item.setter}
+                  className={`w-9 h-4.5 rounded-full transition-all relative ${item.value ? 'bg-orange-500' : 'bg-black/30 border border-white/10'
+                    }`}
+                >
+                  <div className={`absolute top-0.5 w-3.5 h-3.5 bg-white rounded-full shadow-sm transition-all ${item.value ? 'left-[1.25rem]' : 'left-0.5'
+                    }`} />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Save Button */}
         <button
           onClick={handleSave}
-          className="w-full mt-4 px-3 py-2 bg-orange-500 hover:bg-orange-600 rounded-md text-white text-xs font-medium transition-colors"
+          className="w-full mt-5 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 rounded-xl text-white text-xs font-bold transition-all shadow-lg shadow-orange-500/10"
         >
-          Save
+          Save Changes
         </button>
       </div>
     </div>

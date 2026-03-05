@@ -176,7 +176,7 @@ export default function SmartNoteModal({ isOpen, onClose }) {
         .note-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); }
       `}</style>
             <div
-                className="bg-[#1e1e2e] rounded-2xl w-full max-w-sm max-h-[55vh] overflow-hidden shadow-2xl mb-20 ml-4 border border-white/10"
+                className="bg-black/50 rounded-2xl w-full max-w-sm max-h-[55vh] overflow-hidden shadow-2xl mb-20 ml-4 border border-white/10"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
@@ -220,7 +220,7 @@ export default function SmartNoteModal({ isOpen, onClose }) {
                                     placeholder="Tìm ghi chú..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-9 pr-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-xs placeholder:text-white/30 outline-none focus:border-amber-500/50 transition-colors"
+                                    className="w-full pl-9 pr-3 py-2 bg-black/40 border border-white/10 rounded-xl text-white text-xs placeholder:text-white/30 outline-none focus:border-amber-500/50 transition-colors"
                                 />
                             </div>
                         </div>
@@ -288,7 +288,7 @@ export default function SmartNoteModal({ isOpen, onClose }) {
                             placeholder="Tiêu đề (tuỳ chọn)"
                             value={form.title}
                             onChange={(e) => setForm(prev => ({ ...prev, title: e.target.value }))}
-                            className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm placeholder:text-white/30 outline-none focus:border-amber-500/50 transition-colors"
+                            className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-white text-sm placeholder:text-white/30 outline-none focus:border-amber-500/50 transition-colors"
                         />
                         <textarea
                             ref={contentRef}
@@ -296,14 +296,14 @@ export default function SmartNoteModal({ isOpen, onClose }) {
                             value={form.content}
                             onChange={(e) => setForm(prev => ({ ...prev, content: e.target.value }))}
                             rows={8}
-                            className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-sm placeholder:text-white/30 outline-none focus:border-amber-500/50 transition-colors resize-none note-scrollbar"
+                            className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-white text-sm placeholder:text-white/30 outline-none focus:border-amber-500/50 transition-colors resize-none note-scrollbar"
                         />
                         <input
                             type="text"
                             placeholder="Tags (vd: react, study, idea)"
                             value={form.tags}
                             onChange={(e) => setForm(prev => ({ ...prev, tags: e.target.value }))}
-                            className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white text-xs placeholder:text-white/30 outline-none focus:border-amber-500/50 transition-colors"
+                            className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-white text-xs placeholder:text-white/30 outline-none focus:border-amber-500/50 transition-colors"
                         />
                         <div className="flex gap-2 pt-1">
                             <button
@@ -321,7 +321,7 @@ export default function SmartNoteModal({ isOpen, onClose }) {
                             </button>
                             <button
                                 onClick={() => setView("list")}
-                                className="flex-1 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-white/70 text-xs font-medium transition-colors"
+                                className="flex-1 py-2 bg-black/40 hover:bg-black/60 rounded-xl text-white/70 text-xs font-medium transition-colors"
                             >
                                 Huỷ
                             </button>
@@ -349,7 +349,7 @@ export default function SmartNoteModal({ isOpen, onClose }) {
 function NoteCard({ note, onEdit, onDelete, onTogglePin, formatDate }) {
     return (
         <div
-            className="group relative p-3 bg-white/5 hover:bg-white/8 rounded-xl border border-white/5 hover:border-white/10 cursor-pointer transition-all"
+            className="group relative p-3 bg-black/40 hover:bg-black/60 rounded-xl border border-white/5 hover:border-white/10 cursor-pointer transition-all"
             onClick={() => onEdit(note)}
         >
             <div className="flex items-start justify-between gap-2">
