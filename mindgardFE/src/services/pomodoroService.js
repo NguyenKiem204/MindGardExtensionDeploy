@@ -9,4 +9,14 @@ export const pomodoroService = {
     const res = await api.post("/pomodoros/record", session);
     return res.data;
   },
+
+  getFocusSessions: async () => {
+    const res = await api.get("/pomodoros/focus-sessions");
+    return res.data;
+  },
+
+  getAiReview: async (sessions) => {
+    const res = await api.post("/pomodoros/ai-review", sessions);
+    return res.data;
+  },
 };

@@ -5,4 +5,14 @@ export const userService = {
     const res = await api.put("/users/profile", profile);
     return res.data;
   },
+
+  getStats: async () => {
+    const res = await api.get("/stats");
+    return res.data;
+  },
+
+  getFocusStats: async () => {
+    const res = await api.get("/stats/focus");
+    return res.data;
+  },
 };

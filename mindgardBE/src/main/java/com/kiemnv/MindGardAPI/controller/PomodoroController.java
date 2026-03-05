@@ -6,6 +6,8 @@ import com.kiemnv.MindGardAPI.dto.response.FocusSessionDto;
 import com.kiemnv.MindGardAPI.entity.PomodoroSession;
 import com.kiemnv.MindGardAPI.entity.User;
 import com.kiemnv.MindGardAPI.service.PomodoroService;
+import com.kiemnv.MindGardAPI.service.GeminiService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -17,6 +19,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/pomodoros")
@@ -25,6 +28,7 @@ import java.util.List;
 public class PomodoroController {
 
     private final PomodoroService pomodoroService;
+    private final GeminiService geminiService;
 
     @GetMapping
     @SecurityRequirement(name = "bearerAuth")
@@ -71,5 +75,19 @@ public class PomodoroController {
         User user = (User) authentication.getPrincipal();
         PomodoroSession s = pomodoroService.stop(id, user, interrupted);
         return ResponseEntity.ok(ApiResponse.success(s, "Pomodoro stopped"));
+    }
+
+    @PostMapping("/ai-review")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "AI review of study sessions")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> aiReview(@RequestBody List<Object> sessions, Authentication authentication) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            String sessionsJson = mapper.writeValueAsString(sessions);
+            Map<String, Object> result = geminiService.reviewStudySessions(sessionsJson);
+            return ResponseEntity.ok(ApiResponse.success(result, "AI review generated"));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.error("Failed to generate AI review: " + e.getMessage()));
+        }
     }
 }

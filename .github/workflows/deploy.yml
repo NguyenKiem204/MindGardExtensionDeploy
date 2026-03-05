@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'mindgardBE/**' # Chỉ tự động chạy khi bạn sửa code trong thư mục BE
+      - 'mindgardBE/**'
 
 jobs:
   build-and-deploy:
@@ -21,7 +21,6 @@ jobs:
           distribution: 'temurin'
 
       - name: Build JAR with Maven
-        # Chạy lệnh build bên trong thư mục mindgardBE
         run: mvn clean package -DskipTests
         working-directory: ./mindgardBE 
 
@@ -32,7 +31,6 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and Push Docker Image
-        # Lưu ý: Ngữ cảnh build (context) là thư mục mindgardBE
         run: |
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/mindgard-api:latest ./mindgardBE
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/mindgard-api:latest

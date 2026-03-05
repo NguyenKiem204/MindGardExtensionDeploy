@@ -3,6 +3,7 @@ import SceneModal from "./SceneModal";
 import SoundsModal from "./SoundsModal";
 import SmartNoteModal from "./SmartNoteModal";
 import TimerSettingsModal from "./TimerSettingsModal";
+import ActivitiesSummaryModal from "./ActivitiesSummaryModal";
 import UserProfileModal from "./UserProfileModal";
 import FocusModeModal from "./FocusModeModal";
 import LeaderboardModal from "./LeaderboardModal";
@@ -19,7 +20,6 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
   const [selectedTag, setSelectedTag] = useState("");
   const [taskInput, setTaskInput] = useState("");
   const [selectedSounds, setSelectedSounds] = useState([]);
-  const [breakTime, setBreakTime] = useState(0);
   const [isSceneModalOpen, setIsSceneModalOpen] = useState(false);
   const [isSoundsModalOpen, setIsSoundsModalOpen] = useState(false);
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
@@ -28,6 +28,8 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
   const [isFocusModeModalOpen, setIsFocusModeModalOpen] = useState(false);
   const [isLeaderboardModalOpen, setIsLeaderboardModalOpen] = useState(false);
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
+  const [isActivitiesSummaryModalOpen, setIsActivitiesSummaryModalOpen] = useState(false);
+  const [todayFocusMinutes, setTodayFocusMinutes] = useState(0);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showLoginModalOnly, setShowLoginModalOnly] = useState(false);
   const [focusModeSetting, setFocusModeSetting] = useState('manual'); // 'manual' | 'ai'
@@ -141,6 +143,16 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
 
   // Load user info from auth service
   useEffect(() => {
+    const loadTodayStats = async () => {
+      try {
+        const auth = await authService.refreshMe();
+        if (auth?.user) {
+          setTodayFocusMinutes(auth.user.todayFocusMinutes || auth.user.totalStudyDurationMinutes || 0);
+        }
+      } catch (err) {
+        console.error("Failed to load today stats:", err);
+      }
+    };
     const checkAuth = () => {
       const cached = authService.getCachedAuth();
       if (cached?.user && authService.isAuthenticated()) {
@@ -152,6 +164,8 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
           "Guest Account"
         );
         setAvatarError(false);
+        // Load today's stats if authenticated
+        loadTodayStats();
       } else {
         setUserAvatar(null);
         setUserName("kiem");
@@ -973,6 +987,8 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
               isPartial: true,
             });
             console.log(`[StudyFocusUI] Successfully recorded partial session:`, result);
+            // Update local today stats
+            setTodayFocusMinutes(prev => prev + elapsedMin);
           } catch (err) {
             console.error("[StudyFocusUI] Failed to record partial session:", {
               error: err,
@@ -1062,6 +1078,8 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
             taskTitle: taskInput || "Deep work",
             isPartial: false,
           });
+          // Update local today stats
+          setTodayFocusMinutes(prev => prev + completedMin);
         } catch (e) { console.error("Failed to record session:", e); }
       })();
     }
@@ -1450,10 +1468,14 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
               </svg>
             )}
           </button>
-          <div className="flex items-center gap-2 px-3 py-2 bg-black/20 rounded-lg border border-white/10">
+          <button
+            onClick={() => setIsActivitiesSummaryModalOpen(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-black/20 hover:bg-black/50 transition-colors rounded-lg border border-white/10"
+            title="Activities Summary"
+          >
             <Clock className="w-4 h-4" />
-            <span className="text-sm font-medium">{breakTime}m</span>
-          </div>
+            <span className="text-sm font-medium">{todayFocusMinutes}m</span>
+          </button>
           <button
             onClick={() => {
               if (!isAuthenticated) {
@@ -1880,6 +1902,10 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
         }}
       />
 
+      <ActivitiesSummaryModal
+        isOpen={isActivitiesSummaryModalOpen}
+        onClose={() => setIsActivitiesSummaryModalOpen(false)}
+      />
     </div>
   );
 }

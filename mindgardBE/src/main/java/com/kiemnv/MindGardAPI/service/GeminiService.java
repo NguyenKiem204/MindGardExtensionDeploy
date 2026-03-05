@@ -89,4 +89,70 @@ public class GeminiService {
             return Map.of("summary", "", "tags", "");
         }
     }
+
+    /**
+     * Analyze study sessions.
+     * Returns a Map with "performanceScore" (0-100), "peakTime" (string), "feedback" (string).
+     */
+    public Map<String, Object> reviewStudySessions(String sessionsData) {
+        if (apiKey == null || apiKey.isBlank()) {
+            log.warn("Gemini API key not configured");
+            return Map.of("performanceScore", 0, "peakTime", "--", "feedback", "Please set API key.");
+        }
+
+        String prompt = """
+                You are a productivity AI coach analyzing a user's study/focus sessions.
+                Below is the JSON data representing recent study sessions. Analyze this data and return a JSON object with exactly three fields:
+                1. "performanceScore": an integer from 0 to 100 scoring their study efficiency and consistency
+                2. "peakTime": a string identifying their most productive time of day (e.g. "8:00 AM - 11:00 AM" or "Not enough data")
+                3. "feedback": a concise, 1-2 sentence motivating remark or advice in Vietnamese.
+                
+                Sessions: %s
+                
+                Return ONLY valid JSON, no markdown formatting.
+                """.formatted(sessionsData);
+
+        try {
+            String requestBody = objectMapper.writeValueAsString(Map.of(
+                    "contents", new Object[]{
+                            Map.of("parts", new Object[]{
+                                    Map.of("text", prompt)
+                            })
+                    }
+            ));
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(GEMINI_URL + "?key=" + apiKey))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() != 200) {
+                log.error("Gemini API error: {} - {}", response.statusCode(), response.body());
+                return Map.of("performanceScore", 0, "peakTime", "Error", "feedback", "Lỗi phân tích.");
+            }
+
+            JsonNode root = objectMapper.readTree(response.body());
+            String text = root.at("/candidates/0/content/parts/0/text").asText("");
+
+            text = text.replaceAll("```json\\s*", "").replaceAll("```\\s*", "").trim();
+
+            JsonNode result = objectMapper.readTree(text);
+            int performanceScore = result.has("performanceScore") ? result.get("performanceScore").asInt(0) : 0;
+            String peakTime = result.has("peakTime") ? result.get("peakTime").asText("--") : "--";
+            String feedback = result.has("feedback") ? result.get("feedback").asText("") : "";
+
+            return Map.of(
+                "performanceScore", performanceScore,
+                "peakTime", peakTime,
+                "feedback", feedback
+            );
+
+        } catch (Exception e) {
+            log.error("Failed to call Gemini API for sessions: {}", e.getMessage());
+            return Map.of("performanceScore", 0, "peakTime", "Error", "feedback", "Lỗi kết nối AI.");
+        }
+    }
 }
