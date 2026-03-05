@@ -1,0 +1,6 @@
+ Environment Variables:
+     SPRING_DATASOURCE_DRIVER_CLASS_NAME = org.postgresql.Driver
+     SPRING_DATASOURCE_PASSWORD = mindgard
+     SPRING_DATASOURCE_URL = jdbc:postgresql://mindgard.c8hwcmqgwc9r.us-east-1.rds.amazonaws.com:5432/mindgard
+     SPRING_DATASOURCE_USERNAME = mindgard
+     SPRING_JPA_HIBERNATE_DDL_AUTO = update
