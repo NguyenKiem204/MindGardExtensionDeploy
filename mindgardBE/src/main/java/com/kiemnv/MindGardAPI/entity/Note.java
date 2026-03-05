@@ -23,13 +23,16 @@ public class Note {
     @JsonIgnore
     private User user;
 
+    @Column(columnDefinition = "text")
     private String title;
 
     @Column(columnDefinition = "text")
     private String content;
 
+    @Column(columnDefinition = "text")
     private String tags;
 
+    @Column(columnDefinition = "text")
     private String url;
 
     @Builder.Default

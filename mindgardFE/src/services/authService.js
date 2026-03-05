@@ -25,7 +25,14 @@ const persistAuth = (authData) => {
 const loadAuth = () => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    // Sync to chrome storage for background scripts (backward compatibility for existing sessions)
+    if (parsed.accessToken && typeof chrome !== "undefined" && chrome.storage) {
+      chrome.storage.local.set({ token: parsed.accessToken });
+    }
+    return parsed;
   } catch (err) {
     console.error("Failed to read auth cache", err);
     return null;

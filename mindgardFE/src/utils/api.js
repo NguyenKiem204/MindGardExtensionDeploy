@@ -27,6 +27,9 @@ export const authManager = {
     localStorage.setItem("accessToken", token);
     const expiresAt = Date.now() + expiresIn * 1000;
     localStorage.setItem("tokenExpiresAt", expiresAt.toString());
+    if (typeof chrome !== "undefined" && chrome.storage) {
+      chrome.storage.local.set({ token: token });
+    }
   },
 
   clearTokens: () => {

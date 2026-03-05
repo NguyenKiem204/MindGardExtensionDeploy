@@ -32,7 +32,7 @@ chrome.commands.onCommand.addListener(async (command) => {
   }
 });
 
-chrome.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg) return;
 
   // --- Quick Note Save Logic ---
@@ -47,21 +47,29 @@ chrome.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
         // Let's check chrome.storage.local for 'auth_token' or 'token'
         // Often auth setups using Chrome extensions sync to chrome.storage
         const storageData = await chrome.storage.local.get(['token', 'auth_token', 'jwt']);
+        // Prioritize 'token' which is synced by anthService/api.js, then fallback to others
         let token = storageData.token || storageData.auth_token || storageData.jwt;
 
         if (!token) {
-          // Fallback: try to query local storage of the newtab page or rely on the user having logged in via the website/extension
-          // Assuming VITE_API_BASE_URL is api.mindgard.com or similar, for now we hardcore the known prod URL based on previous logs: https://kiemnv.shop/api
-          // Wait, without token, it will fail.
+          console.warn('[BG] No auth token found in storage.');
+          sendResponse({ success: false, error: 'Authorization token not found. Please log in again via the New Tab.' });
+          return;
         }
 
-        const apiUrl = 'https://kiemnv.shop/api/notes'; // Directly hitting prod URL as seen in previous steps
+        // Clean up legacy keys if they exist and we have the new one
+        if (storageData.token && (storageData.auth_token || storageData.jwt)) {
+          chrome.storage.local.remove(['auth_token', 'jwt']);
+        }
+
+        const apiUrl = 'https://kiemnv.shop/api/notes';
+        console.log(`[BG] Attempting to save note to ${apiUrl}. Token: ${token.substring(0, 10)}...${token.substring(token.length - 10)}`);
 
         const response = await fetch(apiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            'ngrok-skip-browser-warning': 'true',
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify(payload)
         });
@@ -82,86 +90,89 @@ chrome.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
 
   // --- AI Focus Mode: YouTube check (triggered by content script classify or check_ai_focus) ---
   if (msg.type === 'classify' || msg.type === 'check_ai_focus') {
-    const { url, title, description } = msg.payload || {};
-    console.log('[BG] Received message:', msg.type, '| URL:', url, '| Title:', title);
+    (async () => {
+      const { url, title, description } = msg.payload || {};
+      console.log('[BG] Received message:', msg.type, '| URL:', url, '| Title:', title);
 
-    // Check AI focus mode first (for YouTube)
-    const isYouTubeWatch = /youtube\.com\/watch/.test(url);
-    console.log('[BG] Is YouTube watch?', isYouTubeWatch);
+      // Check AI focus mode first (for YouTube)
+      const isYouTubeWatch = /youtube\.com\/watch/.test(url);
+      console.log('[BG] Is YouTube watch?', isYouTubeWatch);
 
-    if (isYouTubeWatch) {
-      try {
-        const sessionData = await chrome.storage.local.get(['focusSessionActive']);
-        console.log('[BG] focusSessionActive:', sessionData.focusSessionActive);
+      if (isYouTubeWatch) {
+        try {
+          const sessionData = await chrome.storage.local.get(['focusSessionActive']);
+          console.log('[BG] focusSessionActive:', sessionData.focusSessionActive);
 
-        if (sessionData.focusSessionActive) {
-          const localData = await chrome.storage.local.get(['focusMode', 'currentFocusTopic', 'geminiApiKey']);
-          console.log('[BG] focusMode:', localData.focusMode, '| topic:', localData.currentFocusTopic, '| hasApiKey:', !!localData.geminiApiKey);
+          if (sessionData.focusSessionActive) {
+            const localData = await chrome.storage.local.get(['focusMode', 'currentFocusTopic', 'geminiApiKey']);
+            console.log('[BG] focusMode:', localData.focusMode, '| topic:', localData.currentFocusTopic, '| hasApiKey:', !!localData.geminiApiKey);
 
-          if (localData.focusMode === 'ai' && localData.geminiApiKey) {
-            const topic = localData.currentFocusTopic || 'Focus';
-            // Check cache first
-            const aiCacheKey = `ai_${url}`;
-            const aiHit = aiCache.get(aiCacheKey);
-            const nowMs = Date.now();
-            if (aiHit && nowMs - aiHit.t < 60_000) {
-              console.log('[BG] Cache hit:', aiHit.v);
-              if (aiHit.v === 'unrelated') {
-                console.log('[BG] Sending ai_distraction_warning (cached) to tab', sender.tab.id);
-                try { chrome.tabs.sendMessage(sender.tab.id, { type: 'ai_distraction_warning', payload: { topic } }); } catch (e) { console.error('[BG] sendMessage error:', e); }
+            if (localData.focusMode === 'ai' && localData.geminiApiKey) {
+              const topic = localData.currentFocusTopic || 'Focus';
+              // Check cache first
+              const aiCacheKey = `ai_${url}`;
+              const aiHit = aiCache.get(aiCacheKey);
+              const nowMs = Date.now();
+              if (aiHit && nowMs - aiHit.t < 60_000) {
+                console.log('[BG] Cache hit:', aiHit.v);
+                if (aiHit.v === 'unrelated') {
+                  console.log('[BG] Sending ai_distraction_warning (cached) to tab', sender.tab.id);
+                  try { chrome.tabs.sendMessage(sender.tab.id, { type: 'ai_distraction_warning', payload: { topic } }); } catch (e) { console.error('[BG] sendMessage error:', e); }
+                }
+                return;
               }
-              return;
-            }
 
-            console.log('[BG] Calling Gemini API for classification...');
-            try {
-              const verdict = await classifyYouTubeWithTopic({ url, title, topic, key: localData.geminiApiKey });
-              aiCache.set(aiCacheKey, { t: nowMs, v: verdict });
-              console.log('[BG] ===== AI VERDICT:', verdict, '| Topic:', topic, '| Video:', title, '=====');
-              if (verdict === 'unrelated') {
-                console.log('[BG] >>> SENDING ai_distraction_warning to tab', sender.tab.id);
-                try { chrome.tabs.sendMessage(sender.tab.id, { type: 'ai_distraction_warning', payload: { topic } }); } catch (e) { console.error('[BG] sendMessage error:', e); }
-              } else {
-                console.log('[BG] Video is related, no warning needed.');
+              console.log('[BG] Calling Gemini API for classification...');
+              try {
+                const verdict = await classifyYouTubeWithTopic({ url, title, topic, key: localData.geminiApiKey });
+                aiCache.set(aiCacheKey, { t: nowMs, v: verdict });
+                console.log('[BG] ===== AI VERDICT:', verdict, '| Topic:', topic, '| Video:', title, '=====');
+                if (verdict === 'unrelated') {
+                  console.log('[BG] >>> SENDING ai_distraction_warning to tab', sender.tab.id);
+                  try { chrome.tabs.sendMessage(sender.tab.id, { type: 'ai_distraction_warning', payload: { topic } }); } catch (e) { console.error('[BG] sendMessage error:', e); }
+                } else {
+                  console.log('[BG] Video is related, no warning needed.');
+                }
+              } catch (e) {
+                console.error('[BG] Gemini API call FAILED:', e);
               }
-            } catch (e) {
-              console.error('[BG] Gemini API call FAILED:', e);
+              return; // handled by AI focus, skip general classification
+            } else {
+              console.log('[BG] Not in AI mode or no API key. focusMode:', localData.focusMode);
             }
-            return; // handled by AI focus, skip general classification
           } else {
-            console.log('[BG] Not in AI mode or no API key. focusMode:', localData.focusMode);
+            console.log('[BG] Focus session not active, skipping AI check.');
           }
-        } else {
-          console.log('[BG] Focus session not active, skipping AI check.');
+        } catch (e) {
+          console.error('[BG] AI focus check error:', e);
         }
-      } catch (e) {
-        console.error('[BG] AI focus check error:', e);
       }
-    }
 
-    // If it was a check_ai_focus message, stop here (don't do general classification)
-    if (msg.type === 'check_ai_focus') return;
+      // If it was a check_ai_focus message, stop here (don't do general classification)
+      if (msg.type === 'check_ai_focus') return;
 
-    // --- General entertainment/work classification (original flow) ---
-    const keyData = await chrome.storage.local.get(['geminiApiKey', 'aiBlockingEnabled']);
-    if (!keyData.aiBlockingEnabled || !keyData.geminiApiKey) return;
+      // --- General entertainment/work classification (original flow) ---
+      const keyData = await chrome.storage.local.get(['geminiApiKey', 'aiBlockingEnabled']);
+      if (!keyData.aiBlockingEnabled || !keyData.geminiApiKey) return;
 
-    const cacheKey = url;
-    const hit = cache.get(cacheKey);
-    const now = Date.now();
-    if (hit && now - hit.t < 60_000) {
-      chrome.tabs.sendMessage(sender.tab.id, { type: 'classification', payload: hit.v });
-      return;
-    }
+      const cacheKey = url;
+      const hit = cache.get(cacheKey);
+      const now = Date.now();
+      if (hit && now - hit.t < 60_000) {
+        chrome.tabs.sendMessage(sender.tab.id, { type: 'classification', payload: hit.v });
+        return;
+      }
 
-    try {
-      const label = await classifyWithGemini({ url, title, description, key: keyData.geminiApiKey });
-      const payload = { url, label, confidence: 0.8 };
-      cache.set(cacheKey, { t: now, v: payload });
-      chrome.tabs.sendMessage(sender.tab.id, { type: 'classification', payload });
-    } catch (e) {
-      // Swallow to avoid noisy background errors
-    }
+      try {
+        const label = await classifyWithGemini({ url, title, description, key: keyData.geminiApiKey });
+        const payload = { url, label, confidence: 0.8 };
+        cache.set(cacheKey, { t: now, v: payload });
+        chrome.tabs.sendMessage(sender.tab.id, { type: 'classification', payload });
+      } catch (e) {
+        // Swallow to avoid noisy background errors
+      }
+    })();
+    return true;
   }
 });
 

@@ -493,6 +493,7 @@
       loadingText.style.display = "inline-block";
 
       try {
+        var finalTitle = titleInput.value.trim() || pageTitle;
         // Find token from MindGard's localStorage if we are on the extension page
         // Otherwise, ask background script to get it from storage
         chrome.runtime.sendMessage({
@@ -501,7 +502,8 @@
             title: finalTitle,
             content: content,
             url: pageUrl,
-            tags: ["Quick Note"]
+            tags: "Quick Note",
+            pinned: false
           }
         }, function (response) {
           if (chrome.runtime.lastError) {
