@@ -33,7 +33,7 @@ public class Note {
     private String url;
 
     @Builder.Default
-    private boolean pinned = false;
+    private Boolean pinned = false;
 
     @Column(name = "created_at")
     @Builder.Default

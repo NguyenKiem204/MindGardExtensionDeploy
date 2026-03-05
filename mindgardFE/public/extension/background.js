@@ -1,7 +1,84 @@
 const cache = new Map();
 
-chrome.runtime.onMessage.addListener(async (msg, sender) => {
+// --- Keyboard Shortcut Handler ---
+chrome.commands.onCommand.addListener(async (command) => {
+  if (command === 'toggle-quick-note') {
+    // Check if user is authenticated before injecting UI
+    const storageData = await chrome.storage.local.get(['token', 'auth_token', 'jwt']);
+    const token = storageData.token || storageData.auth_token || storageData.jwt;
+
+    if (!token) {
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: 'logo.png',
+        title: 'MindGard - Login Required',
+        message: 'Please open a New Tab and log in to MindGard to use Quick Notes.'
+      });
+      return;
+    }
+
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs.length > 0) {
+        const tab = tabs[0];
+        // Don't send messages to internal browser pages
+        if (tab.url && (tab.url.startsWith('chrome://') || tab.url.startsWith('edge://') || tab.url.startsWith('chrome-extension://'))) {
+          return;
+        }
+        chrome.tabs.sendMessage(tab.id, { type: 'toggle_quick_note' }).catch(err => {
+          console.log('[BG] toggle_quick_note ignored: Content script not loaded in this tab. Try reloading the page.', err.message);
+        });
+      }
+    });
+  }
+});
+
+chrome.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
   if (!msg) return;
+
+  // --- Quick Note Save Logic ---
+  if (msg.type === 'save_quick_note') {
+    (async () => {
+      try {
+        const payload = msg.payload;
+        // Assume the token is stored in chrome.storage.local by the extension page
+        // Wait, normally localStorage in extension page is not accessible directly here if using standard window.localStorage
+        // But since we are looking at MindGardAPI, let's grab token from chrome.storage if available
+        // If it's only in localStorage of the extension page, we might need to get it via a different way.
+        // Let's check chrome.storage.local for 'auth_token' or 'token'
+        // Often auth setups using Chrome extensions sync to chrome.storage
+        const storageData = await chrome.storage.local.get(['token', 'auth_token', 'jwt']);
+        let token = storageData.token || storageData.auth_token || storageData.jwt;
+
+        if (!token) {
+          // Fallback: try to query local storage of the newtab page or rely on the user having logged in via the website/extension
+          // Assuming VITE_API_BASE_URL is api.mindgard.com or similar, for now we hardcore the known prod URL based on previous logs: https://kiemnv.shop/api
+          // Wait, without token, it will fail.
+        }
+
+        const apiUrl = 'https://kiemnv.shop/api/notes'; // Directly hitting prod URL as seen in previous steps
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+          sendResponse({ success: true });
+        } else {
+          const errText = await response.text();
+          sendResponse({ success: false, error: `API error ${response.status}: ${errText}` });
+        }
+      } catch (err) {
+        console.error('[BG] Save note error:', err);
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true; // Keep message port open for async sendResponse
+  }
 
   // --- AI Focus Mode: YouTube check (triggered by content script classify or check_ai_focus) ---
   if (msg.type === 'classify' || msg.type === 'check_ai_focus') {

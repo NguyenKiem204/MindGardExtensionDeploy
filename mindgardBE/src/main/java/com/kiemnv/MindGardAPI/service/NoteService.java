@@ -42,7 +42,7 @@ public class NoteService {
         if (update.getContent() != null) n.setContent(update.getContent());
         if (update.getTags() != null) n.setTags(update.getTags());
         if (update.getUrl() != null) n.setUrl(update.getUrl());
-        n.setPinned(update.isPinned());
+        if (update.getPinned() != null) n.setPinned(update.getPinned());
         n.setUpdatedAt(LocalDateTime.now());
         return noteRepository.save(n);
     }

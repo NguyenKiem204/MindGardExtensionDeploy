@@ -7,6 +7,9 @@ const persistAuth = (authData) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(authData));
   if (authData.accessToken) {
     localStorage.setItem("accessToken", authData.accessToken);
+    if (typeof chrome !== "undefined" && chrome.storage) {
+      chrome.storage.local.set({ token: authData.accessToken });
+    }
   }
   if (authData.expiresIn) {
     const expiresAt = Date.now() + authData.expiresIn * 1000;
@@ -34,6 +37,9 @@ const clearAuth = () => {
   localStorage.removeItem("accessToken");
   localStorage.removeItem("tokenExpiresAt");
   localStorage.removeItem("refreshToken");
+  if (typeof chrome !== "undefined" && chrome.storage) {
+    chrome.storage.local.remove(['token', 'auth_token', 'jwt']);
+  }
   // Dispatch event để các component biết auth đã clear
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("mindgard_auth_cleared"));

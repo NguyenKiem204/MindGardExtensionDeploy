@@ -264,4 +264,345 @@
     el.appendChild(btn);
     document.body.appendChild(el);
   }
+
+  // --- Quick Note UI ---
+  chrome.runtime.onMessage.addListener(function (msg) {
+    if (msg && msg.type === "toggle_quick_note") {
+      toggleQuickNoteUI();
+    }
+  });
+
+  function toggleQuickNoteUI() {
+    var existing = document.getElementById("__mindgard_quick_note__");
+    if (existing) {
+      existing.remove();
+      return;
+    }
+
+    // Inject styles
+    if (!document.getElementById("__mindgard_quick_note_style__")) {
+      var style = document.createElement("style");
+      style.id = "__mindgard_quick_note_style__";
+      style.innerHTML = `
+        #__mindgard_quick_note__ {
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          width: 350px;
+          background: #ffffff;
+          border-radius: 12px;
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+          z-index: 2147483647;
+          font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          border: 1px solid #e2e8f0;
+          animation: slideInUp 0.3s ease-out;
+          color: #1e293b;
+        }
+        @keyframes slideInUp {
+          from { transform: translateY(20px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        #__mindgard_quick_note_header__ {
+          background: #f8fafc;
+          padding: 12px 16px;
+          border-bottom: 1px solid #e2e8f0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          cursor: grab;
+          user-select: none;
+        }
+        #__mindgard_quick_note_header__:active {
+          cursor: grabbing;
+        }
+        #__mindgard_quick_note_title__ {
+          font-weight: 600;
+          font-size: 14px;
+          color: #0f172a;
+          margin: 0;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        #__mindgard_quick_note_close__ {
+          background: transparent;
+          border: none;
+          color: #64748b;
+          cursor: pointer;
+          padding: 4px;
+          border-radius: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        #__mindgard_quick_note_close__:hover {
+          background: #e2e8f0;
+          color: #0f172a;
+        }
+        #__mindgard_quick_note_body__ {
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        #__mindgard_quick_note_page_title_input__ {
+          font-size: 13px;
+          color: #0f172a;
+          width: 100%;
+          background: #f1f5f9;
+          padding: 6px 10px;
+          border-radius: 6px;
+          border: 1px solid transparent;
+          font-family: inherit;
+          box-sizing: border-box;
+          outline: none;
+        }
+        #__mindgard_quick_note_page_title_input__:focus {
+          border-color: #cbd5e1;
+          background: #fff;
+        }
+        #__mindgard_quick_note_textarea__ {
+          width: 100%;
+          min-height: 100px;
+          padding: 10px;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+          resize: vertical;
+          font-family: inherit;
+          font-size: 14px;
+          line-height: 1.5;
+          outline: none;
+          box-sizing: border-box;
+          color: #0f172a;
+          background: #fff;
+        }
+        #__mindgard_quick_note_textarea__:focus {
+          border-color: #3b82f6;
+          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+        #__mindgard_quick_note_footer__ {
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+          padding: 0 16px 16px 16px;
+        }
+        .mg-btn {
+          padding: 8px 16px;
+          border-radius: 6px;
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          border: 1px solid transparent;
+          transition: all 0.2s;
+        }
+        .mg-btn-secondary {
+          background: #fff;
+          border-color: #cbd5e1;
+          color: #64748b;
+        }
+        .mg-btn-secondary:hover {
+          background: #f8fafc;
+          color: #0f172a;
+        }
+        .mg-btn-primary {
+          background: #3b82f6;
+          color: #fff;
+        }
+        .mg-btn-primary:hover {
+          background: #2563eb;
+        }
+        #__mindgard_quick_note_loading__ {
+          display: none;
+          font-size: 12px;
+          color: #64748b;
+          align-self: center;
+          margin-right: auto;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    var container = document.createElement("div");
+    container.id = "__mindgard_quick_note__";
+
+    var pageTitle = document.title || "Untitled Page";
+    var pageUrl = window.location.href;
+
+    container.innerHTML = `
+      <div id="__mindgard_quick_note_header__">
+        <h3 id="__mindgard_quick_note_title__">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          Quick Note
+        </h3>
+        <button id="__mindgard_quick_note_close__">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div id="__mindgard_quick_note_body__">
+        <input type="text" id="__mindgard_quick_note_page_title_input__" value="${pageTitle.replace(/"/g, '&quot;')}" title="Edit title" placeholder="Note Title" />
+        <textarea id="__mindgard_quick_note_textarea__" placeholder="Start typing your note... (Press Ctrl+Enter to save)"></textarea>
+      </div>
+      <div id="__mindgard_quick_note_footer__">
+        <span id="__mindgard_quick_note_loading__">Saving...</span>
+        <button class="mg-btn mg-btn-secondary" id="__mindgard_quick_note_cancel__">Cancel</button>
+        <button class="mg-btn mg-btn-primary" id="__mindgard_quick_note_save__">Save Note</button>
+      </div>
+    `;
+
+    document.body.appendChild(container);
+
+    // DOM Elements
+    var header = document.getElementById("__mindgard_quick_note_header__");
+    var closeBtn = document.getElementById("__mindgard_quick_note_close__");
+    var cancelBtn = document.getElementById("__mindgard_quick_note_cancel__");
+    var saveBtn = document.getElementById("__mindgard_quick_note_save__");
+    var titleInput = document.getElementById("__mindgard_quick_note_page_title_input__");
+    var textarea = document.getElementById("__mindgard_quick_note_textarea__");
+    var loadingText = document.getElementById("__mindgard_quick_note_loading__");
+
+    // Focus textarea automatically
+    textarea.focus();
+
+    // Event Listeners
+    closeBtn.onclick = () => container.remove();
+    cancelBtn.onclick = () => container.remove();
+
+    // Keyboard shortcuts within UI
+    textarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        container.remove();
+      } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        saveBtn.click();
+      }
+    });
+
+    // Save action
+    saveBtn.onclick = async () => {
+      var content = textarea.value.trim();
+      if (!content) {
+        textarea.focus();
+        return;
+      }
+
+      saveBtn.disabled = true;
+      cancelBtn.disabled = true;
+      textarea.disabled = true;
+      loadingText.style.display = "inline-block";
+
+      try {
+        // Find token from MindGard's localStorage if we are on the extension page
+        // Otherwise, ask background script to get it from storage
+        chrome.runtime.sendMessage({
+          type: "save_quick_note",
+          payload: {
+            title: finalTitle,
+            content: content,
+            url: pageUrl,
+            tags: ["Quick Note"]
+          }
+        }, function (response) {
+          if (chrome.runtime.lastError) {
+            console.error("Save error:", chrome.runtime.lastError);
+            alert("MindGard: Could not connect to background script.");
+            resetUI();
+            return;
+          }
+          if (response && response.success) {
+            showToast("Note saved successfully! ✅");
+            container.remove();
+          } else {
+            alert("Failed to save note: " + (response?.error || "Unknown error"));
+            resetUI();
+          }
+        });
+      } catch (err) {
+        console.error("Save error:", err);
+        alert("Failed to save note.");
+        resetUI();
+      }
+    };
+
+    function resetUI() {
+      saveBtn.disabled = false;
+      cancelBtn.disabled = false;
+      textarea.disabled = false;
+      titleInput.disabled = false;
+      loadingText.style.display = "none";
+      textarea.focus();
+    }
+
+    // --- Draggable Logic ---
+    var isDragging = false;
+    var currentX;
+    var currentY;
+    var initialX;
+    var initialY;
+    var xOffset = 0;
+    var yOffset = 0;
+
+    header.addEventListener("mousedown", dragStart);
+    document.addEventListener("mouseup", dragEnd);
+    document.addEventListener("mousemove", drag);
+
+    function dragStart(e) {
+      // Get current position
+      var rect = container.getBoundingClientRect();
+
+      // Calculate offset differently for first drag vs subsequent drags
+      // Because initially it's positioned by bottom/right, but we'll switch to transform
+      if (xOffset === 0 && yOffset === 0) {
+        xOffset = rect.left;
+        yOffset = rect.top;
+        container.style.bottom = 'auto';
+        container.style.right = 'auto';
+        container.style.left = '0px';
+        container.style.top = '0px';
+        container.style.transform = `translate3d(${xOffset}px, ${yOffset}px, 0)`;
+      }
+
+      initialX = e.clientX - xOffset;
+      initialY = e.clientY - yOffset;
+
+      if (e.target === header || header.contains(e.target)) {
+        isDragging = true;
+      }
+    }
+
+    function dragEnd(e) {
+      initialX = currentX;
+      initialY = currentY;
+      isDragging = false;
+    }
+
+    function drag(e) {
+      if (isDragging) {
+        e.preventDefault();
+        currentX = e.clientX - initialX;
+        currentY = e.clientY - initialY;
+
+        // Boundaries
+        var rect = container.getBoundingClientRect();
+        var maxX = window.innerWidth - rect.width;
+        var maxY = window.innerHeight - rect.height;
+
+        if (currentX < 0) currentX = 0;
+        if (currentY < 0) currentY = 0;
+        if (currentX > maxX) currentX = maxX;
+        if (currentY > maxY) currentY = maxY;
+
+        xOffset = currentX;
+        yOffset = currentY;
+
+        setTranslate(currentX, currentY, container);
+      }
+    }
+
+    function setTranslate(xPos, yPos, el) {
+      el.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`;
+    }
+  }
+
 })();

@@ -149,6 +149,24 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
     };
   }, [isUserProfileModalOpen]); // Also reload when modal opens
 
+  // Handle global keyboard shortcuts within the New Tab page
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Toggle Quick Note (Alt+Shift+Q or Cmd+Shift+Q)
+      if ((e.altKey && e.shiftKey && e.key.toLowerCase() === 'q') || (e.metaKey && e.shiftKey && e.key.toLowerCase() === 'q')) {
+        e.preventDefault();
+        if (authService.isAuthenticated()) {
+          setIsNoteModalOpen((prev) => !prev);
+        } else {
+          setShowLoginModalOnly(true);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Save focus mode settings
   useEffect(() => {
     try {
