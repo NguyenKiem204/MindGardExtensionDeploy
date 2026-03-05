@@ -1,5 +1,6 @@
 package com.kiemnv.MindGardAPI.entity;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -27,8 +28,10 @@ public class FocusRoomParticipant {
 
     @Column(name = "joined_at")
     @Builder.Default
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS")
     private LocalDateTime joinedAt = LocalDateTime.now();
 
     @Column(name = "left_at")
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS")
     private LocalDateTime leftAt;
 }
