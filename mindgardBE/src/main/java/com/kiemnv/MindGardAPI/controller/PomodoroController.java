@@ -87,7 +87,7 @@ public class PomodoroController {
             Map<String, Object> result = geminiService.reviewStudySessions(sessionsJson);
             return ResponseEntity.ok(ApiResponse.success(result, "AI review generated"));
         } catch (Exception e) {
-            return ResponseEntity.ok(ApiResponse.error("Failed to generate AI review: " + e.getMessage()));
+            return ResponseEntity.status(500).body(ApiResponse.error("Failed to generate AI review: " + e.getMessage(), 500));
         }
     }
 }
