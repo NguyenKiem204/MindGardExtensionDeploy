@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import SceneModal from "./SceneModal";
 import SoundsModal from "./SoundsModal";
+import SmartNoteModal from "./SmartNoteModal";
 import TimerSettingsModal from "./TimerSettingsModal";
 import UserProfileModal from "./UserProfileModal";
 import FocusModeModal from "./FocusModeModal";
 import LeaderboardModal from "./LeaderboardModal";
 import LoginModal from "./LoginModal";
 import SubscriptionModal from "./SubscriptionModal";
-import { Play, Pause, SkipForward, Settings, Volume2, Image, MessageCircle, Zap, Clock, Music, Video, Grid3x3, Cloud, BarChart3, MoreHorizontal, Minus, Maximize2, Square, X } from "lucide-react";
+import { Play, Pause, SkipForward, Settings, Volume2, Image, MessageCircle, Zap, Clock, Music, Video, Grid3x3, StickyNote, BarChart3, MoreHorizontal, Minus, Maximize2, Square, X } from "lucide-react";
 import { authService } from "../services/authService";
 import { pomodoroService } from "../services/pomodoroService";
 
@@ -20,6 +21,7 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
   const [breakTime, setBreakTime] = useState(0);
   const [isSceneModalOpen, setIsSceneModalOpen] = useState(false);
   const [isSoundsModalOpen, setIsSoundsModalOpen] = useState(false);
+  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [isTimerSettingsModalOpen, setIsTimerSettingsModalOpen] = useState(false);
   const [isUserProfileModalOpen, setIsUserProfileModalOpen] = useState(false);
   const [isFocusModeModalOpen, setIsFocusModeModalOpen] = useState(false);
@@ -1503,8 +1505,12 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
 
       {/* Bottom Left Navigation */}
       <nav className="absolute bottom-8 left-8 flex gap-3">
-        <button className="p-4 bg-slate-500/60 hover:bg-slate-500/70 rounded-2xl backdrop-blur-md transition">
-          <Cloud className="w-5 h-5 text-white/90" />
+        <button
+          onClick={() => setIsNoteModalOpen(true)}
+          className="p-4 bg-slate-500/60 hover:bg-slate-500/70 rounded-2xl backdrop-blur-md transition"
+          title="Smart Notes"
+        >
+          <StickyNote className="w-5 h-5 text-white/90" />
         </button>
         <button
           onClick={() => setIsSoundsModalOpen(true)}
@@ -1553,6 +1559,12 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
       <SoundsModal
         isOpen={isSoundsModalOpen}
         onClose={() => setIsSoundsModalOpen(false)}
+      />
+
+      {/* Smart Note Modal */}
+      <SmartNoteModal
+        isOpen={isNoteModalOpen}
+        onClose={() => setIsNoteModalOpen(false)}
       />
 
       {/* Timer Settings Modal */}

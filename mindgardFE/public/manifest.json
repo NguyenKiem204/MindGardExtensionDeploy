@@ -16,6 +16,7 @@
     "storage",
     "notifications",
     "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess",
     "windows",
     "tabs",
     "alarms",

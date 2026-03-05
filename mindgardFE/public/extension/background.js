@@ -93,15 +93,38 @@ chrome.runtime.onInstalled.addListener(async () => {
     for (const d of existing.blockedDomains) if (d) groups.Custom.items.push(String(d).toLowerCase());
     await chrome.storage.local.set({ blockedGroups: groups, blockedDomains: [] });
   }
+
+  // Set up DNR rules to spoof Referer/Origin for YouTube so extension iframe works
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: [1001],
+    addRules: [
+      {
+        id: 1001,
+        priority: 1,
+        action: {
+          type: "modifyHeaders",
+          requestHeaders: [
+            { header: "Referer", operation: "set", value: "https://www.youtube.com/" },
+            { header: "Origin", operation: "set", value: "https://www.youtube.com" }
+          ]
+        },
+        condition: {
+          urlFilter: "||youtube.com/embed/*",
+          initiatorDomains: [chrome.runtime.id],
+          resourceTypes: ["sub_frame"]
+        }
+      }
+    ]
+  });
 });
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status !== 'complete' || !tab || !tab.active) return;
   const { focusMode, currentFocusTopic, allowedDomains, blockedGroups, sessionBlocked } = await chrome.storage.local.get([
-    'focusMode','currentFocusTopic','allowedDomains','blockedGroups','sessionBlocked'
+    'focusMode', 'currentFocusTopic', 'allowedDomains', 'blockedGroups', 'sessionBlocked'
   ]);
   const url = tab.url || '';
-  console.log('[FG] onUpdated', { tabId, url, focusMode, allowedDomains, blockedGroupsKeys: Object.keys(blockedGroups||{}), sessionBlockedHit: !!(sessionBlocked && sessionBlocked[url]) });
+  console.log('[FG] onUpdated', { tabId, url, focusMode, allowedDomains, blockedGroupsKeys: Object.keys(blockedGroups || {}), sessionBlockedHit: !!(sessionBlocked && sessionBlocked[url]) });
 
   // If already session-blocked, redirect immediately
   if (sessionBlocked && sessionBlocked[url]) {
@@ -142,7 +165,7 @@ chrome.webNavigation?.onCommitted?.addListener(async (details) => {
     if (details.frameId !== 0) return;
     const tabId = details.tabId;
     const url = details.url || '';
-    const { focusMode, allowedDomains, blockedGroups } = await chrome.storage.local.get(['focusMode','allowedDomains','blockedGroups']);
+    const { focusMode, allowedDomains, blockedGroups } = await chrome.storage.local.get(['focusMode', 'allowedDomains', 'blockedGroups']);
     console.log('[FG] onCommitted', { tabId, url, focusMode });
     if (focusMode !== 'manual') return;
     if (isAllowedUrl(url, allowedDomains || [])) return;
@@ -151,14 +174,14 @@ chrome.webNavigation?.onCommitted?.addListener(async (details) => {
       console.log('[FG] manual block matched (onCommitted) → redirect');
       try { await chrome.tabs.update(tabId, { url: chrome.runtime.getURL('extension/blocked.html') }); } catch (e) { console.warn('[FG] redirect fail', e); }
     }
-  } catch {}
+  } catch { }
 });
 
 chrome.tabs.onActivated.addListener(async ({ tabId }) => {
   try {
     const tab = await chrome.tabs.get(tabId);
     const url = tab.url || '';
-    const { focusMode, allowedDomains, blockedGroups } = await chrome.storage.local.get(['focusMode','allowedDomains','blockedGroups']);
+    const { focusMode, allowedDomains, blockedGroups } = await chrome.storage.local.get(['focusMode', 'allowedDomains', 'blockedGroups']);
     console.log('[FG] onActivated', { tabId, url, focusMode });
     if (focusMode !== 'manual') return;
     if (isAllowedUrl(url, allowedDomains || [])) return;
@@ -167,7 +190,7 @@ chrome.tabs.onActivated.addListener(async ({ tabId }) => {
       console.log('[FG] manual block matched (onActivated) → redirect');
       try { await chrome.tabs.update(tabId, { url: chrome.runtime.getURL('extension/blocked.html') }); } catch (e) { console.warn('[FG] redirect fail', e); }
     }
-  } catch {}
+  } catch { }
 });
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
@@ -181,7 +204,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 
   if (type === 'warn') {
     // Show warning notification and schedule hard block
-    try { await chrome.notifications.create(undefined, { type: 'basic', title: 'Stay on task', message: 'This page seems off-topic. You will be blocked in 5 minutes if you stay.', iconUrl: 'icon.png' }); } catch {}
+    try { await chrome.notifications.create(undefined, { type: 'basic', title: 'Stay on task', message: 'This page seems off-topic. You will be blocked in 5 minutes if you stay.', iconUrl: 'icon.png' }); } catch { }
     const hardName = alarmName('hard', tabId, url);
     await chrome.alarms.clear(hardName);
     const mins = await getNumber('hardBlockMinutes', 5);
@@ -194,14 +217,14 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     const sessionBlocked = data.sessionBlocked || {};
     sessionBlocked[url] = true;
     await chrome.storage.local.set({ sessionBlocked });
-    try { await chrome.tabs.update(tabId, { url: chrome.runtime.getURL('extension/blocked.html') }); } catch {}
+    try { await chrome.tabs.update(tabId, { url: chrome.runtime.getURL('extension/blocked.html') }); } catch { }
   }
 });
 
 function isBlockedByDomain(url, blockedDomains) {
   try {
     const u = new URL(url);
-    const host = u.hostname.replace(/^www\./,'');
+    const host = u.hostname.replace(/^www\./, '');
     return blockedDomains.some(d => host === d || host.endsWith('.' + d));
   } catch { return false; }
 }
@@ -210,8 +233,8 @@ function isAllowedUrl(url, allowedList) {
   try {
     if (!allowedList || !allowedList.length) return false;
     const u = new URL(url);
-    const host = u.hostname.replace(/^www\./,'');
-    const log = (...args) => { try { console.log('[FG] allowCheck', ...args); } catch {} };
+    const host = u.hostname.replace(/^www\./, '');
+    const log = (...args) => { try { console.log('[FG] allowCheck', ...args); } catch { } };
     for (const entry of allowedList) {
       if (!entry) continue;
       // Support object { name, url }
@@ -226,24 +249,24 @@ function isAllowedUrl(url, allowedList) {
           const eu = new URL(e);
           const ev = eu.searchParams.get('v');
           const elist = eu.searchParams.get('list');
-          if (ev && host === eu.hostname.replace(/^www\./,'')) {
+          if (ev && host === eu.hostname.replace(/^www\./, '')) {
             const uv = u.searchParams.get('v');
             if (uv && uv === ev) { log('match by video id', { ev, uv }); return true; }
           }
           // If allowed URL has a playlist id (?list=...), allow any URL with same list on same host
-          if (elist && host === eu.hostname.replace(/^www\./,'')) {
+          if (elist && host === eu.hostname.replace(/^www\./, '')) {
             const ulist = u.searchParams.get('list');
             if (ulist && ulist === elist) { log('match by playlist id', { elist, ulist }); return true; }
           }
           // Support youtu.be short links by video id
           if (/^youtu\.be$/i.test(eu.hostname)) {
-            const shortId = (eu.pathname || '').replace(/^\//,'');
+            const shortId = (eu.pathname || '').replace(/^\//, '');
             const uv = u.searchParams.get('v');
             if (shortId && uv && uv === shortId && /youtube\.com$/.test(host)) { log('match by youtu.be id', { shortId, uv }); return true; }
           }
         } else {
           // Treat as host allow
-          const eh = e.replace(/^www\./,'');
+          const eh = e.replace(/^www\./, '');
           if (host === eh || host.endsWith('.' + eh)) { log('match by host', { host, eh }); return true; }
 
           // Treat bare playlist id (e.g., RD..., PL...) as allow-by-list for YouTube hosts
@@ -268,7 +291,7 @@ function isAllowedUrl(url, allowedList) {
             }
           }
         }
-      } catch {}
+      } catch { }
     }
     return false;
   } catch { return false; }
@@ -309,29 +332,41 @@ function mergeBlockedDomains(groups) {
         }
       }
     }
-  } catch {}
+  } catch { }
   return Array.from(set);
 }
 
 function getDefaultBlockedGroups() {
   return {
-    AI: { enabled: false, items: [
-      'chat.openai.com','claude.ai','perplexity.ai','poe.com','gemini.google.com'
-    ]},
-    SocialMedia: { enabled: false, items: [
-      'facebook.com','instagram.com','tiktok.com','web.whatsapp.com','messenger.com','web.telegram.org','x.com','reddit.com','discord.com','snapchat.com','pinterest.com','linkedin.com','threads.net','wechat.com','qq.com','vk.com','line.me','tumblr.com'
-    ]},
-    Entertainment: { enabled: false, items: [
-      'youtube.com','netflix.com','twitch.tv','primevideo.com','disneyplus.com','hulu.com','vimeo.com','soundcloud.com','spotify.com','crunchyroll.com','hbomax.com','tv.apple.com'
-    ]},
-    News: { enabled: false, items: [
-      'cnn.com','bbc.com','nytimes.com','theguardian.com','washingtonpost.com','wsj.com','bloomberg.com','reuters.com','foxnews.com','nbcnews.com','cnbc.com','abcnews.go.com','apnews.com','aljazeera.com'
-    ]},
-    Shopping: { enabled: false, items: [
-      'amazon.com','ebay.com','walmart.com','bestbuy.com','shopee.vn','lazada.vn','taobao.com','aliexpress.com','etsy.com','target.com'
-    ]},
-    Email: { enabled: false, items: [
-      'mail.google.com','outlook.com','mail.yahoo.com','proton.me'
-    ]},
+    AI: {
+      enabled: false, items: [
+        'chat.openai.com', 'claude.ai', 'perplexity.ai', 'poe.com', 'gemini.google.com'
+      ]
+    },
+    SocialMedia: {
+      enabled: false, items: [
+        'facebook.com', 'instagram.com', 'tiktok.com', 'web.whatsapp.com', 'messenger.com', 'web.telegram.org', 'x.com', 'reddit.com', 'discord.com', 'snapchat.com', 'pinterest.com', 'linkedin.com', 'threads.net', 'wechat.com', 'qq.com', 'vk.com', 'line.me', 'tumblr.com'
+      ]
+    },
+    Entertainment: {
+      enabled: false, items: [
+        'youtube.com', 'netflix.com', 'twitch.tv', 'primevideo.com', 'disneyplus.com', 'hulu.com', 'vimeo.com', 'soundcloud.com', 'spotify.com', 'crunchyroll.com', 'hbomax.com', 'tv.apple.com'
+      ]
+    },
+    News: {
+      enabled: false, items: [
+        'cnn.com', 'bbc.com', 'nytimes.com', 'theguardian.com', 'washingtonpost.com', 'wsj.com', 'bloomberg.com', 'reuters.com', 'foxnews.com', 'nbcnews.com', 'cnbc.com', 'abcnews.go.com', 'apnews.com', 'aljazeera.com'
+      ]
+    },
+    Shopping: {
+      enabled: false, items: [
+        'amazon.com', 'ebay.com', 'walmart.com', 'bestbuy.com', 'shopee.vn', 'lazada.vn', 'taobao.com', 'aliexpress.com', 'etsy.com', 'target.com'
+      ]
+    },
+    Email: {
+      enabled: false, items: [
+        'mail.google.com', 'outlook.com', 'mail.yahoo.com', 'proton.me'
+      ]
+    },
   };
 }

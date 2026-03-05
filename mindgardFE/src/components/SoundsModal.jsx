@@ -1,23 +1,16 @@
-import { useState, useEffect } from "react";
-import { X, Plus, Play, Pause, ExternalLink, Lock } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { X, Plus, Play, Pause, Upload, Trash2, Lock, Music } from "lucide-react";
 import { useAudio } from "../context/AudioContext";
 import { soundService } from "../services/soundService";
 import { authService } from "../services/authService";
 
-// Trích xuất YouTube video ID từ URL hoặc ID
-function getYoutubeVideoId(input) {
-  if (!input?.trim()) return null;
-  const s = input.trim();
-  const match = s.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/) || (s.length === 11 && /^[a-zA-Z0-9_-]+$/.test(s) ? [null, s] : null);
-  return match ? match[1] : null;
-}
-
 export default function SoundsModal({ isOpen, onClose }) {
   const [activeTab, setActiveTab] = useState("Soundscapes");
   const [musicList, setMusicList] = useState([]);
-  const [customYoutubeLinks, setCustomYoutubeLinks] = useState([]);
-  const [pasteLinkValue, setPasteLinkValue] = useState("");
+  const [userMusicList, setUserMusicList] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   const {
     activeMusic, playMusic, isPlaying,
@@ -36,11 +29,11 @@ export default function SoundsModal({ isOpen, onClose }) {
     return () => window.removeEventListener("mindgard_auth_changed", checkPlus);
   }, []);
 
-  const tabs = ["Soundscapes", "Youtube", "Spotify", "Custom"];
+  const tabs = ["Soundscapes", "Music"];
 
-  // Fetch data
+  // Fetch predefined music
   useEffect(() => {
-    if (isOpen && activeTab === "Youtube" && musicList.length === 0) {
+    if (isOpen && activeTab === "Music" && musicList.length === 0) {
       setLoading(true);
       soundService.getMusic()
         .then(data => setMusicList(data))
@@ -49,25 +42,63 @@ export default function SoundsModal({ isOpen, onClose }) {
     }
   }, [isOpen, activeTab, musicList.length]);
 
-  const allYoutubeMusic = [...musicList, ...customYoutubeLinks];
-
-  const handleAddYoutubeLink = () => {
-    const videoId = getYoutubeVideoId(pasteLinkValue);
-    if (!videoId) return;
-    if (customYoutubeLinks.some((m) => m.src === videoId)) {
-      setPasteLinkValue("");
-      return;
+  // Fetch user's custom music
+  useEffect(() => {
+    if (isOpen && activeTab === "Music" && isPlusUser) {
+      soundService.getUserMusic()
+        .then(data => {
+          // Map backend Sound entity to frontend format
+          const mapped = data.map(s => ({
+            id: s.id,
+            name: s.name,
+            thumbnail: s.thumbnail || null,
+            src: s.srcUrl,
+            type: s.type || "MP3",
+            category: s.category || "Custom",
+            isCustom: true
+          }));
+          setUserMusicList(mapped);
+        })
+        .catch(err => console.error(err));
     }
-    const newItem = {
-      id: `custom-${videoId}`,
-      name: `YouTube ${videoId}`,
-      thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-      src: videoId,
-      type: "YOUTUBE",
-      category: "Custom",
-    };
-    setCustomYoutubeLinks((prev) => [...prev, newItem]);
-    setPasteLinkValue("");
+  }, [isOpen, activeTab, isPlusUser]);
+
+  const allMusic = [...musicList, ...userMusicList];
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const saved = await soundService.uploadMusic(file, file.name.replace(/\.[^.]+$/, ''));
+      // Add to user list
+      setUserMusicList(prev => [...prev, {
+        id: saved.id,
+        name: saved.name,
+        thumbnail: saved.thumbnail || null,
+        src: saved.srcUrl,
+        type: saved.type || "MP3",
+        category: "Custom",
+        isCustom: true
+      }]);
+    } catch (err) {
+      console.error("Upload failed:", err);
+      alert("Upload thất bại. Vui lòng thử lại.");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDeleteTrack = async (track) => {
+    if (!confirm(`Xóa "${track.name}"?`)) return;
+    try {
+      await soundService.deleteUserMusic(track.id);
+      setUserMusicList(prev => prev.filter(m => m.id !== track.id));
+    } catch (err) {
+      console.error("Delete failed:", err);
+    }
   };
 
   const soundIcons = {
@@ -180,110 +211,23 @@ export default function SoundsModal({ isOpen, onClose }) {
   };
 
   const soundOptions = [
-    {
-      id: "lofi-hip-hop",
-      name: "lofi hip hop ra...",
-      thumbnail: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=200&h=200&fit=crop&crop=center",
-      category: "recent"
-    },
-    {
-      id: "synthwave",
-      name: "synthwave ra...",
-      thumbnail: "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=200&h=200&fit=crop&crop=center",
-      category: "recent"
-    },
-    {
-      id: "rainfall",
-      name: "Rainfall",
-      thumbnail: "https://images.unsplash.com/photo-1519904981063-b0cf448d479e?w=200&h=200&fit=crop&crop=center",
-      category: "soundscapes"
-    },
-    {
-      id: "noise",
-      name: "Noise",
-      thumbnail: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=200&fit=crop&crop=center",
-      category: "soundscapes"
-    },
-    {
-      id: "binaural",
-      name: "Binaural",
-      thumbnail: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=200&h=200&fit=crop&crop=center",
-      category: "soundscapes"
-    },
-    {
-      id: "ocean",
-      name: "Ocean",
-      thumbnail: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=200&h=200&fit=crop&crop=center",
-      category: "soundscapes"
-    },
-    {
-      id: "campfire",
-      name: "Campfire",
-      thumbnail: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=200&h=200&fit=crop&crop=center",
-      category: "soundscapes"
-    },
-    {
-      id: "beach",
-      name: "Beach",
-      thumbnail: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=200&h=200&fit=crop&crop=center",
-      category: "soundscapes"
-    },
-    {
-      id: "train",
-      name: "Train",
-      thumbnail: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=200&h=200&fit=crop&crop=center",
-      category: "soundscapes"
-    },
-    {
-      id: "forest",
-      name: "Forest",
-      thumbnail: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=200&h=200&fit=crop&crop=center",
-      category: "soundscapes"
-    },
-    {
-      id: "garden",
-      name: "Garden",
-      thumbnail: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=200&h=200&fit=crop&crop=center",
-      category: "soundscapes"
-    },
-    {
-      id: "cafe",
-      name: "Café",
-      thumbnail: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=200&h=200&fit=crop&crop=center",
-      category: "soundscapes"
-    },
-    {
-      id: "thunderstorm",
-      name: "Thunderstorm",
-      thumbnail: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=200&h=200&fit=crop&crop=center",
-      category: "soundscapes"
-    },
-    {
-      id: "creek",
-      name: "Creek",
-      thumbnail: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=200&h=200&fit=crop&crop=center",
-      category: "soundscapes"
-    },
-    {
-      id: "office",
-      name: "Office",
-      thumbnail: "https://images.unsplash.com/photo-1497366216548-37526070297c?w=200&h=200&fit=crop&crop=center",
-      category: "soundscapes"
-    },
-    {
-      id: "custom",
-      name: "Custom",
-      thumbnail: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=200&h=200&fit=crop&crop=center",
-      category: "custom"
-    }
+    { id: "rainfall", name: "Rainfall", thumbnail: "https://images.unsplash.com/photo-1519904981063-b0cf448d479e?w=200&h=200&fit=crop&crop=center", category: "soundscapes" },
+    { id: "noise", name: "Noise", thumbnail: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=200&fit=crop&crop=center", category: "soundscapes" },
+    { id: "binaural", name: "Binaural", thumbnail: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=200&h=200&fit=crop&crop=center", category: "soundscapes" },
+    { id: "ocean", name: "Ocean", thumbnail: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=200&h=200&fit=crop&crop=center", category: "soundscapes" },
+    { id: "campfire", name: "Campfire", thumbnail: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=200&h=200&fit=crop&crop=center", category: "soundscapes" },
+    { id: "beach", name: "Beach", thumbnail: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=200&h=200&fit=crop&crop=center", category: "soundscapes" },
+    { id: "train", name: "Train", thumbnail: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=200&h=200&fit=crop&crop=center", category: "soundscapes" },
+    { id: "forest", name: "Forest", thumbnail: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=200&h=200&fit=crop&crop=center", category: "soundscapes" },
+    { id: "garden", name: "Garden", thumbnail: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=200&h=200&fit=crop&crop=center", category: "soundscapes" },
+    { id: "cafe", name: "Café", thumbnail: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=200&h=200&fit=crop&crop=center", category: "soundscapes" },
+    { id: "thunderstorm", name: "Thunderstorm", thumbnail: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=200&h=200&fit=crop&crop=center", category: "soundscapes" },
+    { id: "creek", name: "Creek", thumbnail: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=200&h=200&fit=crop&crop=center", category: "soundscapes" },
+    { id: "office", name: "Office", thumbnail: "https://images.unsplash.com/photo-1497366216548-37526070297c?w=200&h=200&fit=crop&crop=center", category: "soundscapes" },
+    { id: "custom", name: "Custom", thumbnail: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=200&h=200&fit=crop&crop=center", category: "custom" }
   ];
 
-  const moodTags = ["Deep", "Focus", "Positive", "Classical"];
-
-  // Mỗi soundscape dùng một URL âm thanh riêng (Google Sound Library)
   const SOUNDSCAPE_SRC = {
-    "lofi-hip-hop": "https://actions.google.com/sounds/v1/ambiences/coffee_shop.ogg",
-    synthwave: "https://actions.google.com/sounds/v1/ambiences/arcade_room.ogg",
     rainfall: "https://actions.google.com/sounds/v1/weather/light_rain.ogg",
     noise: "https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg",
     binaural: "https://actions.google.com/sounds/v1/ambiences/ambient_hum_air_conditioner.ogg",
@@ -334,16 +278,36 @@ export default function SoundsModal({ isOpen, onClose }) {
             </div>
             <h2 className="text-lg font-semibold text-white">Sounds</h2>
           </div>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700/50 hover:bg-gray-600 rounded-lg text-white transition-colors">
-            <Plus className="w-3 h-3" />
-            <span className="text-xs font-medium">Add</span>
-          </button>
+          {/* Upload button (only in Music tab for Plus users) */}
+          {activeTab === "Music" && isPlusUser && (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 disabled:opacity-50 rounded-lg text-white transition-all"
+            >
+              {uploading ? (
+                <span className="text-xs font-medium">Đang tải...</span>
+              ) : (
+                <>
+                  <Upload className="w-3 h-3" />
+                  <span className="text-xs font-medium">Upload</span>
+                </>
+              )}
+            </button>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="audio/*"
+            className="hidden"
+            onChange={handleFileUpload}
+          />
         </div>
 
         {/* Tabs */}
         <div className="flex gap-1 px-3 pt-3">
           {tabs.map((tab) => {
-            const isPremiumTab = ["Youtube", "Spotify", "Custom"].includes(tab);
+            const isPremiumTab = tab === "Music";
             const isLocked = isPremiumTab && !isPlusUser;
             return (
               <button
@@ -391,8 +355,8 @@ export default function SoundsModal({ isOpen, onClose }) {
             </div>
           )}
 
-          {/* YOUTUBE TAB */}
-          {activeTab === "Youtube" && (
+          {/* MUSIC TAB */}
+          {activeTab === "Music" && (
             !isPlusUser ? (
               <div className="flex flex-col items-center justify-center h-full text-center py-6 space-y-4">
                 <div className="w-14 h-14 bg-gradient-to-br from-orange-400 to-amber-500 rounded-full flex items-center justify-center mx-auto shadow-[0_0_15px_rgba(249,115,22,0.4)]">
@@ -400,7 +364,7 @@ export default function SoundsModal({ isOpen, onClose }) {
                 </div>
                 <h3 className="text-white font-bold">Mở khóa Âm nhạc Cao cấp</h3>
                 <p className="text-gray-400 text-xs max-w-[250px]">
-                  Nâng cấp MindGard Plus để nghe nhạc từ YouTube, Spotify và tải lên âm thanh của riêng bạn.
+                  Nâng cấp MindGard Plus để nghe nhạc và tải lên âm thanh của riêng bạn.
                 </p>
                 <button
                   onClick={() => {
@@ -414,122 +378,113 @@ export default function SoundsModal({ isOpen, onClose }) {
               </div>
             ) : (
               <div className="space-y-3">
-                {/* Ô dán đường link YouTube */}
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Dán link YouTube hoặc ID video..."
-                    value={pasteLinkValue}
-                    onChange={(e) => setPasteLinkValue(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleAddYoutubeLink()}
-                    className="flex-1 px-3 py-2 rounded-xl bg-gray-700/50 text-white text-sm placeholder-gray-400 border border-gray-600 focus:border-blue-500 focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddYoutubeLink}
-                    disabled={!getYoutubeVideoId(pasteLinkValue)}
-                    className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium whitespace-nowrap"
-                  >
-                    Thêm
-                  </button>
-                </div>
-                {loading && <div className="text-white text-center py-4">Loading music...</div>}
-                {!loading && (
-                  <div className="grid grid-cols-4 gap-3">
-                    {allYoutubeMusic.map((item) => {
-                      const isCurrent = activeMusic?.id === item.id;
-                      const isPlayingItem = isCurrent && isPlaying;
-                      return (
-                        <div
-                          key={item.id}
-                          className="group cursor-pointer flex flex-col items-center gap-2"
-                          onClick={() => {
-                            playMusic(item);
-                          }}
-                        >
-                          <div
-                            className={`relative w-14 h-14 rounded-2xl overflow-hidden transition-all duration-300 ${isCurrent ? "ring-2 ring-blue-400 scale-105 shadow-lg shadow-blue-500/20" : "hover:scale-105"}`}
-                          >
-                            <img
-                              src={item.thumbnail}
-                              alt={item.name}
-                              className="w-full h-full object-cover opacity-90 group-hover:opacity-100"
-                            />
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                              {isPlayingItem ? (
-                                <Pause className="w-6 h-6 text-white" />
-                              ) : (
-                                <Play className="w-6 h-6 text-white" />
-                              )}
-                            </div>
-                          </div>
-                          <h3
-                            className={`text-[10px] font-medium text-center truncate w-full ${isCurrent ? "text-blue-400" : "text-gray-300"}`}
-                            title={item.name}
-                          >
-                            {item.name}
-                          </h3>
+                {loading && <div className="text-white text-center py-4">Đang tải nhạc...</div>}
+                {!loading && allMusic.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+                    <Music className="w-10 h-10 mb-2 opacity-50" />
+                    <p className="text-sm">Chưa có nhạc nào</p>
+                    <p className="text-xs mt-1">Nhấn Upload để tải nhạc lên</p>
+                  </div>
+                )}
+                {!loading && allMusic.length > 0 && (
+                  <>
+                    {/* Predefined section */}
+                    {musicList.length > 0 && (
+                      <>
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Nhạc có sẵn</p>
+                        <div className="grid grid-cols-4 gap-3">
+                          {musicList.map((item) => {
+                            const isCurrent = activeMusic?.id === item.id;
+                            const isPlayingItem = isCurrent && isPlaying;
+                            return (
+                              <div
+                                key={item.id}
+                                className="group cursor-pointer flex flex-col items-center gap-2"
+                                onClick={() => playMusic(item)}
+                              >
+                                <div className={`relative w-14 h-14 rounded-2xl overflow-hidden transition-all duration-300 ${isCurrent ? "ring-2 ring-blue-400 scale-105 shadow-lg shadow-blue-500/20" : "hover:scale-105"}`}>
+                                  {item.thumbnail ? (
+                                    <img src={item.thumbnail} alt={item.name} className="w-full h-full object-cover opacity-90 group-hover:opacity-100" />
+                                  ) : (
+                                    <div className="w-full h-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
+                                      <Music className="w-6 h-6 text-white/70" />
+                                    </div>
+                                  )}
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                    {isPlayingItem ? <Pause className="w-6 h-6 text-white" /> : <Play className="w-6 h-6 text-white" />}
+                                  </div>
+                                </div>
+                                <h3 className={`text-[10px] font-medium text-center truncate w-full ${isCurrent ? "text-blue-400" : "text-gray-300"}`} title={item.name}>
+                                  {item.name}
+                                </h3>
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
-                  </div>
+                      </>
+                    )}
+
+                    {/* Custom uploaded section */}
+                    {userMusicList.length > 0 && (
+                      <>
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mt-3">Nhạc của bạn</p>
+                        <div className="grid grid-cols-4 gap-3">
+                          {userMusicList.map((item) => {
+                            const isCurrent = activeMusic?.id === item.id;
+                            const isPlayingItem = isCurrent && isPlaying;
+                            return (
+                              <div
+                                key={item.id}
+                                className="group cursor-pointer flex flex-col items-center gap-2 relative"
+                              >
+                                <div
+                                  className={`relative w-14 h-14 rounded-2xl overflow-hidden transition-all duration-300 ${isCurrent ? "ring-2 ring-green-400 scale-105 shadow-lg shadow-green-500/20" : "hover:scale-105"}`}
+                                  onClick={() => playMusic(item)}
+                                >
+                                  <div className="w-full h-full bg-gradient-to-br from-emerald-600 to-teal-600 flex items-center justify-center">
+                                    <Music className="w-6 h-6 text-white/70" />
+                                  </div>
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                    {isPlayingItem ? <Pause className="w-6 h-6 text-white" /> : <Play className="w-6 h-6 text-white" />}
+                                  </div>
+                                </div>
+                                {/* Delete button */}
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleDeleteTrack(item); }}
+                                  className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <Trash2 className="w-2.5 h-2.5 text-white" />
+                                </button>
+                                <h3 className={`text-[10px] font-medium text-center truncate w-full ${isCurrent ? "text-green-400" : "text-gray-300"}`} title={item.name}>
+                                  {item.name}
+                                </h3>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </>
                 )}
-                {/* Gợi ý khi đang phát: nếu extension chặn embed thì mở tab mới */}
-                {activeMusic?.type?.toUpperCase() === "YOUTUBE" && activeMusic?.src && (
-                  <div className="mt-2 pt-2 border-t border-gray-700/50 flex items-center justify-between gap-2">
+
+                {/* Now playing indicator */}
+                {activeMusic?.src && (
+                  <div className="mt-2 pt-2 border-t border-gray-700/50 flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`} />
                     <span className="text-[10px] text-gray-400 truncate">
-                      Đang chọn: {activeMusic.name}
+                      {isPlaying ? 'Đang phát' : 'Tạm dừng'}: {activeMusic.name}
                     </span>
-                    <a
-                      href={`https://www.youtube.com/watch?v=${activeMusic.src}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300 whitespace-nowrap"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <ExternalLink className="w-3 h-3" />
-                      Mở trong tab mới
-                    </a>
                   </div>
                 )}
               </div>
             )
           )}
-
-          {/* OTHER TABS */}
-          {(activeTab === 'Spotify' || activeTab === 'Custom' || activeTab === 'Recent') && (
-            !isPlusUser ? (
-              <div className="flex flex-col items-center justify-center h-full text-center py-6 space-y-4">
-                <div className="w-14 h-14 bg-gradient-to-br from-orange-400 to-amber-500 rounded-full flex items-center justify-center mx-auto shadow-[0_0_15px_rgba(249,115,22,0.4)]">
-                  <Lock className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-white font-bold">Mở khóa Âm nhạc Cao cấp</h3>
-                <p className="text-gray-400 text-xs max-w-[250px]">
-                  Nâng cấp MindGard Plus để dùng tính năng này.
-                </p>
-                <button
-                  onClick={() => {
-                    onClose();
-                    window.dispatchEvent(new CustomEvent('mindgard_open_subscription'));
-                  }}
-                  className="px-4 py-2 mt-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-xs font-bold rounded-lg text-white shadow-lg shadow-orange-500/30"
-                >
-                  Nâng cấp Plus
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-40 text-gray-400">
-                <p>Coming Soon</p>
-              </div>
-            )
-          )}
-
         </div>
 
-        {/* Mood Tags */}
+        {/* Footer */}
         <div className="px-3 py-3 border-t border-gray-700/50">
           <div className="flex gap-1.5 flex-wrap">
-            {moodTags.map((tag) => (
+            {["Deep", "Focus", "Positive", "Classical"].map((tag) => (
               <button
                 key={tag}
                 className="px-2.5 py-1 bg-gray-700/50 hover:bg-gray-600 rounded-full text-white text-xs transition-colors"
