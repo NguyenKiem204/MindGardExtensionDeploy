@@ -118,9 +118,16 @@ export default function SmartNoteModal({ isOpen, onClose }) {
 
     const formatDate = (dateStr) => {
         if (!dateStr) return "";
-        const d = new Date(dateStr);
+        let d = new Date(dateStr);
+
+        // If date is invalid, try to handle it
+        if (isNaN(d.getTime())) return "";
+
         const now = new Date();
         const diff = now - d;
+
+        // If diff is negative (e.g. server time slightly ahead), treat as "Vừa xong"
+        if (diff < 0) return "Vừa xong";
         if (diff < 60000) return "Vừa xong";
         if (diff < 3600000) return `${Math.floor(diff / 60000)} phút trước`;
         if (diff < 86400000) return `${Math.floor(diff / 3600000)} giờ trước`;
