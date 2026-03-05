@@ -4,6 +4,7 @@ import com.kiemnv.MindGardAPI.dto.response.ApiResponse;
 import com.kiemnv.MindGardAPI.dto.response.QuickNoteDto;
 import com.kiemnv.MindGardAPI.entity.Note;
 import com.kiemnv.MindGardAPI.entity.User;
+import com.kiemnv.MindGardAPI.service.GeminiService;
 import com.kiemnv.MindGardAPI.service.NoteService;
 import com.kiemnv.MindGardAPI.service.SettingsService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,6 +27,7 @@ public class NoteController {
 
     private final NoteService noteService;
     private final SettingsService settingsService;
+    private final GeminiService geminiService;
 
     /** FE extension: GET quickNotes (key "quickNotes") */
     @GetMapping("/quick")
@@ -95,5 +97,15 @@ public class NoteController {
         User user = (User) authentication.getPrincipal();
         noteService.delete(id, user);
         return ResponseEntity.ok(ApiResponse.success(null, "Note deleted"));
+    }
+
+    @PostMapping("/ai-enhance")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "AI enhance: generate summary and tags for note content")
+    public ResponseEntity<ApiResponse<Map<String, String>>> aiEnhance(@RequestBody Map<String, String> body, Authentication authentication) {
+        String title = body.getOrDefault("title", "");
+        String content = body.getOrDefault("content", "");
+        Map<String, String> result = geminiService.enhanceNote(title, content);
+        return ResponseEntity.ok(ApiResponse.success(result, "AI enhancement generated"));
     }
 }

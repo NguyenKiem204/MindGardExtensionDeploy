@@ -13,5 +13,5 @@ import java.util.List;
 @AllArgsConstructor
 public class LeaderboardResponseDto {
     private List<LeaderboardEntryDto> entries;
-    private LeaderboardEntryDto currentUser; // Pinned current user entry (null if not ranked)
+    private LeaderboardEntryDto currentUser;
 }

@@ -1,8 +1,10 @@
 package com.kiemnv.MindGardAPI.controller;
 
 import com.kiemnv.MindGardAPI.dto.response.ApiResponse;
+import com.kiemnv.MindGardAPI.dto.response.MusicResponse;
 import com.kiemnv.MindGardAPI.entity.Sound;
 import com.kiemnv.MindGardAPI.entity.User;
+import com.kiemnv.MindGardAPI.service.CloudinaryService;
 import com.kiemnv.MindGardAPI.service.SoundService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -13,7 +15,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 
 @RestController
@@ -23,10 +27,11 @@ import java.util.List;
 public class SoundController {
 
     private final SoundService soundService;
+    private final CloudinaryService cloudinaryService;
 
     @GetMapping("/music")
-    @Operation(summary = "List curated music (Hardcoded)")
-    public ResponseEntity<ApiResponse<List<com.kiemnv.MindGardAPI.dto.response.MusicResponse>>> listMusic() {
+    @Operation(summary = "List curated music")
+    public ResponseEntity<ApiResponse<List<MusicResponse>>> listMusic() {
         return ResponseEntity.ok(ApiResponse.success(soundService.getMusicList(), "Music list retrieved"));
     }
 
@@ -46,6 +51,33 @@ public class SoundController {
         User user = (User) authentication.getPrincipal();
         List<Sound> list = soundService.listAll(user);
         return ResponseEntity.ok(ApiResponse.success(list, "Sounds retrieved"));
+    }
+
+    @PostMapping(value = "/upload", consumes = "multipart/form-data")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Upload custom audio file")
+    public ResponseEntity<ApiResponse<Sound>> uploadAudio(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "name", required = false) String name,
+            Authentication authentication) throws IOException {
+
+        User user = (User) authentication.getPrincipal();
+
+        // Upload to Cloudinary
+        String audioUrl = cloudinaryService.uploadAudio(file);
+
+        // Save to DB
+        String trackName = (name != null && !name.isBlank()) ? name : file.getOriginalFilename();
+        Sound sound = Sound.builder()
+                .name(trackName)
+                .srcUrl(audioUrl)
+                .type("MP3")
+                .category("Custom")
+                .user(user)
+                .build();
+        Sound saved = soundService.create(user, sound);
+
+        return ResponseEntity.ok(ApiResponse.success(saved, "Audio uploaded successfully"));
     }
 
     @PostMapping

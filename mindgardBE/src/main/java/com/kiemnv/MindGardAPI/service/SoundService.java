@@ -20,43 +20,64 @@ public class SoundService {
 
     private final SoundRepository soundRepository;
 
+    /**
+     * Predefined curated music list with standard audio URLs (not YouTube).
+     */
     public List<MusicResponse> getMusicList() {
         List<MusicResponse> list = new ArrayList<>();
 
         list.add(MusicResponse.builder()
-                .id("lofi-girl")
-                .name("Lofi Girl 24/7")
-                .thumbnail("https://i.ytimg.com/vi/jfKfPfyJRdk/hqdefault.jpg")
-                .src("jfKfPfyJRdk")
-                .type("YOUTUBE")
+                .id("serene-view")
+                .name("Serene View")
+                .thumbnail("https://images.unsplash.com/photo-1494232410401-ad00d5433cfa?w=200&h=200&fit=crop")
+                .src("https://assets.mixkit.co/music/443/443.mp3")
+                .type("MP3")
                 .category("Focus")
                 .build());
 
         list.add(MusicResponse.builder()
-                .id("synthwave-boy")
-                .name("Synthwave Radio")
-                .thumbnail("https://i.ytimg.com/vi/MVPTGNGiI-4/hqdefault.jpg")
-                .src("MVPTGNGiI-4")
-                .type("YOUTUBE")
+                .id("sweet-september")
+                .name("Sweet September")
+                .thumbnail("https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=200&h=200&fit=crop")
+                .src("https://assets.mixkit.co/music/282/282.mp3")
+                .type("MP3")
+                .category("Focus")
+                .build());
+
+        list.add(MusicResponse.builder()
+                .id("curiosity")
+                .name("Curiosity")
+                .thumbnail("https://images.unsplash.com/photo-1520523839897-bd0b52f945a0?w=200&h=200&fit=crop")
+                .src("https://assets.mixkit.co/music/480/480.mp3")
+                .type("MP3")
                 .category("Deep")
                 .build());
 
-         list.add(MusicResponse.builder()
-                .id("piano-focus")
-                .name("Quiet Piano")
-                .thumbnail("https://i.ytimg.com/vi/t2a4lYc3h1E/hqdefault.jpg")
-                .src("t2a4lYc3h1E")
-                .type("YOUTUBE")
+        list.add(MusicResponse.builder()
+                .id("sleepy-cat")
+                .name("Sleepy Cat")
+                .thumbnail("https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=200&h=200&fit=crop")
+                .src("https://assets.mixkit.co/music/135/135.mp3")
+                .type("MP3")
                 .category("Classical")
                 .build());
 
-         list.add(MusicResponse.builder()
-                .id("dark-ambient")
-                .name("Dark Space Ambient")
-                .thumbnail("https://i.ytimg.com/vi/S_oMDVO-UAA/hqdefault.jpg")
-                .src("S_oMDVO-UAA")
-                .type("YOUTUBE")
-                .category("Deep")
+        list.add(MusicResponse.builder()
+                .id("majestic")
+                .name("Majestic")
+                .thumbnail("https://images.unsplash.com/photo-1507838153414-b4b713384a76?w=200&h=200&fit=crop")
+                .src("https://assets.mixkit.co/music/475/475.mp3")
+                .type("MP3")
+                .category("Positive")
+                .build());
+
+        list.add(MusicResponse.builder()
+                .id("pop-vibes")
+                .name("Pop Vibes")
+                .thumbnail("https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=200&h=200&fit=crop")
+                .src("https://assets.mixkit.co/music/695/695.mp3")
+                .type("MP3")
+                .category("Positive")
                 .build());
 
         return list;

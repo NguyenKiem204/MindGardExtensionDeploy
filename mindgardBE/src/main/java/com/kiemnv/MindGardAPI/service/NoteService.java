@@ -40,6 +40,8 @@ public class NoteService {
         Note n = get(id, user);
         if (update.getTitle() != null) n.setTitle(update.getTitle());
         if (update.getContent() != null) n.setContent(update.getContent());
+        if (update.getTags() != null) n.setTags(update.getTags());
+        if (update.getUrl() != null) n.setUrl(update.getUrl());
         n.setPinned(update.isPinned());
         n.setUpdatedAt(LocalDateTime.now());
         return noteRepository.save(n);

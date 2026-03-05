@@ -25,6 +25,13 @@ public class Sound {
 
     private String srcUrl;
 
+    private String thumbnail;
+
+    @Builder.Default
+    private String type = "MP3"; // "MP3", "OGG", etc.
+
+    private String category;
+
     private Double volumeDefault;
 
     @Column(name = "is_premium")

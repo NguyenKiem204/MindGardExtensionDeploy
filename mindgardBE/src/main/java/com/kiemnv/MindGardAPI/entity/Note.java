@@ -26,6 +26,10 @@ public class Note {
     @Column(columnDefinition = "text")
     private String content;
 
+    private String tags;
+
+    private String url;
+
     @Builder.Default
     private boolean pinned = false;
 
