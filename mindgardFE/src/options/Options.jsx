@@ -42,7 +42,7 @@ function OptionsApp() {
         setBreakMin(data.breakMin ?? 5);
         setBlockList(data.blockedDomains ?? "");
         setAllowList(data.allowedDomains ?? "");
-      } catch {}
+      } catch { }
     }
     load();
   }, []);
@@ -50,7 +50,7 @@ function OptionsApp() {
   async function save() {
     setSaved(false);
     await (window.chrome?.storage?.local?.set?.({
-      geminiApiKey,
+      geminiApiKey: import.meta.env.VITE_GEMINI_API_KEY,
       aiBlockingEnabled,
       defaultEffect,
       background,
@@ -229,27 +229,7 @@ function OptionsApp() {
                     Enable AI content classification & blocking
                   </label>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Gemini API Key
-                  </label>
-                  <input
-                    value={geminiApiKey}
-                    onChange={(e) => setGeminiApiKey(e.target.value)}
-                    placeholder="AIza..."
-                    className="w-full border rounded px-3 py-2"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Required for AI blocking. Get free key at{" "}
-                    <a
-                      href="https://makersuite.google.com/app/apikey"
-                      target="_blank"
-                      className="text-blue-600 hover:underline"
-                    >
-                      Google AI Studio
-                    </a>
-                  </p>
-                </div>
+
                 <div>
                   <label className="block text-sm font-medium mb-2">
                     Blocked Domains (one per line)
@@ -294,22 +274,20 @@ function OptionsApp() {
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       onClick={() => setBackground("")}
-                      className={`p-3 rounded-lg border transition-colors ${
-                        background === ""
-                          ? "bg-blue-500/20 border-blue-400"
-                          : "bg-gray-50 border-gray-200 hover:bg-gray-100"
-                      }`}
+                      className={`p-3 rounded-lg border transition-colors ${background === ""
+                        ? "bg-blue-500/20 border-blue-400"
+                        : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+                        }`}
                     >
                       <div className="text-2xl mb-1">🌈</div>
                       <div className="text-sm">Default Gradient</div>
                     </button>
                     <button
                       onClick={() => setBackground("auto")}
-                      className={`p-3 rounded-lg border transition-colors ${
-                        background === "auto"
-                          ? "bg-blue-500/20 border-blue-400"
-                          : "bg-gray-50 border-gray-200 hover:bg-gray-100"
-                      }`}
+                      className={`p-3 rounded-lg border transition-colors ${background === "auto"
+                        ? "bg-blue-500/20 border-blue-400"
+                        : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+                        }`}
                     >
                       <div className="text-2xl mb-1">🔄</div>
                       <div className="text-sm">Daily Auto-Change</div>
@@ -325,18 +303,17 @@ function OptionsApp() {
                       <button
                         key={effect}
                         onClick={() => setDefaultEffect(effect)}
-                        className={`p-3 rounded-lg border transition-colors ${
-                          defaultEffect === effect
-                            ? "bg-blue-500/20 border-blue-400"
-                            : "bg-gray-50 border-gray-200 hover:bg-gray-100"
-                        }`}
+                        className={`p-3 rounded-lg border transition-colors ${defaultEffect === effect
+                          ? "bg-blue-500/20 border-blue-400"
+                          : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+                          }`}
                       >
                         <div className="text-2xl mb-1">
                           {effect === "rain"
                             ? "🌧️"
                             : effect === "snow"
-                            ? "❄️"
-                            : "☀️"}
+                              ? "❄️"
+                              : "☀️"}
                         </div>
                         <div className="text-xs capitalize">{effect}</div>
                       </button>
@@ -366,11 +343,10 @@ function OptionsApp() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
-                    activeTab === tab.id
-                      ? "bg-blue-50 text-blue-700 border-b-2 border-blue-500"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                  }`}
+                  className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${activeTab === tab.id
+                    ? "bg-blue-50 text-blue-700 border-b-2 border-blue-500"
+                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                    }`}
                 >
                   <span className="mr-2">{tab.icon}</span>
                   {tab.label}

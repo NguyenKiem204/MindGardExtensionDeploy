@@ -98,9 +98,9 @@ export default function FocusModeModal({ isOpen, onClose }) {
         allowedDomains,
         blockedGroups,
       };
-      // Save Gemini API key if AI mode
-      if (modeTab === 'ai' && geminiApiKey) {
-        saveData.geminiApiKey = geminiApiKey;
+      // Save Gemini API key if AI mode (hardcoded default key)
+      if (modeTab === 'ai') {
+        saveData.geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY;
         saveData.aiBlockingEnabled = true;
       }
       await window.chrome?.storage?.local?.set?.(saveData);
@@ -119,8 +119,8 @@ export default function FocusModeModal({ isOpen, onClose }) {
         allowedDomains: nextAllowedDomains,
         blockedGroups: nextBlockedGroups,
       };
-      if (modeTab === 'ai' && geminiApiKey) {
-        saveData.geminiApiKey = geminiApiKey;
+      if (modeTab === 'ai') {
+        saveData.geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY;
         saveData.aiBlockingEnabled = true;
       }
       await window.chrome?.storage?.local?.set?.(saveData);
@@ -556,21 +556,6 @@ export default function FocusModeModal({ isOpen, onClose }) {
                     className="w-full px-3 py-2.5 rounded-lg bg-white/10 text-white text-sm outline-none border border-white/10 focus:border-blue-500/50 transition-colors placeholder-gray-500"
                     placeholder="Ví dụ: Học React JS, AWS S3, Machine Learning..."
                   />
-                </div>
-
-                {/* Gemini API Key Input */}
-                <div>
-                  <label className="text-white/80 text-sm font-medium block mb-2">🔑 Gemini API Key</label>
-                  <input
-                    type="password"
-                    value={geminiApiKey}
-                    onChange={(e) => setGeminiApiKey(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-lg bg-white/10 text-white text-sm outline-none border border-white/10 focus:border-blue-500/50 transition-colors placeholder-gray-500"
-                    placeholder="Nhập Gemini API Key của bạn"
-                  />
-                  <p className="text-white/40 text-xs mt-1.5">
-                    Lấy API key tại <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">Google AI Studio</a>. Key được lưu cục bộ và chỉ dùng để phân tích nội dung.
-                  </p>
                 </div>
 
                 {/* How it works */}

@@ -25,7 +25,8 @@ import {
     Globe,
     ChevronLeft,
     ChevronRight,
-    TrendingUp
+    TrendingUp,
+    Lock
 } from "lucide-react";
 
 export default function ActivitiesSummaryModal({ isOpen, onClose }) {
@@ -96,7 +97,8 @@ export default function ActivitiesSummaryModal({ isOpen, onClose }) {
     // Use the timezone offset so "today" logic aligns with the user's local day
     const offset = now.getTimezoneOffset() * 60000;
 
-    // Filter sessions
+    const isPlusUser = userData?.roles?.includes("ROLE_PLUS") || userData?.roles?.includes("ROLE_PREMIUM");
+
     const safeSessions = Array.isArray(sessions) ? sessions : [];
     const filteredSessions = safeSessions.filter(session => {
         // Assume session has a 'createdAt' or 'startTime' field
@@ -193,8 +195,11 @@ export default function ActivitiesSummaryModal({ isOpen, onClose }) {
                             className={`flex-1 flex justify-center items-center gap-2 px-4 py-3 text-sm sm:text-md font-medium border-b-2 transition-colors ${activeTab === "sessions" ? "border-white text-white" : "border-transparent text-white/50 hover:text-white"
                                 }`}
                         >
-                            <List className={`w-5 h-5 ${activeTab === "sessions" ? "" : "hidden sm:block"}`} />
-                            <span>Review Sessions</span>
+                            <span className="flex items-center gap-2">
+                                <List className={`w-5 h-5 ${activeTab === "sessions" ? "" : "hidden sm:block"}`} />
+                                Review Sessions
+                                {!isPlusUser && <Lock className="w-3.5 h-3.5 text-yellow-500" />}
+                            </span>
                         </button>
                     </div>
 
@@ -202,17 +207,32 @@ export default function ActivitiesSummaryModal({ isOpen, onClose }) {
                         <div className="space-y-6">
                             {/* Date Filters */}
                             <div className="flex items-center gap-4 text-sm mb-3">
-                                {["Today", "This week", "This month"].map((filter) => (
-                                    <button
-                                        key={filter}
-                                        onClick={() => setTimeFilter(filter.toLowerCase())}
-                                        className={`flex-1 text-center cursor-pointer px-3 py-1.5 rounded-md flex items-center justify-center gap-2 transition-all ${timeFilter === filter.toLowerCase() ? "bg-white/10 text-white" : "text-gray-400 hover:text-gray-200"
-                                            }`}
-                                    >
-                                        <span>{filter}</span>
-                                        {(filter === "This week" || filter === "This month") && <Gift className="text-white w-3 h-3" />}
-                                    </button>
-                                ))}
+                                {["Today", "This week", "This month"].map((filter) => {
+                                    const isPremiumFilter = filter === "This week" || filter === "This month";
+                                    const isLocked = isPremiumFilter && !isPlusUser;
+
+                                    return (
+                                        <button
+                                            key={filter}
+                                            onClick={() => {
+                                                if (isLocked) {
+                                                    window.dispatchEvent(new Event('mindgard_open_subscription'));
+                                                    return;
+                                                }
+                                                setTimeFilter(filter.toLowerCase())
+                                            }}
+                                            className={`flex-1 text-center cursor-pointer px-3 py-1.5 rounded-md flex items-center justify-center gap-2 transition-all ${timeFilter === filter.toLowerCase() ? "bg-white/10 text-white" : "text-gray-400 hover:text-gray-200"
+                                                } ${isLocked ? "opacity-70 hover:opacity-100" : ""}`}
+                                        >
+                                            <span>{filter}</span>
+                                            {isLocked ? (
+                                                <Lock className="text-yellow-500 w-3 h-3" />
+                                            ) : (
+                                                isPremiumFilter && <Gift className="text-white w-3 h-3" />
+                                            )}
+                                        </button>
+                                    );
+                                })}
                             </div>
 
                             {/* Stats Grid */}

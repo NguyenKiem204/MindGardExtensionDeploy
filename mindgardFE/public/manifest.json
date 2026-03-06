@@ -15,9 +15,6 @@
   "permissions": [
     "storage",
     "notifications",
-    "declarativeNetRequest",
-    "declarativeNetRequestWithHostAccess",
-    "windows",
     "tabs",
     "alarms",
     "webNavigation",
@@ -29,9 +26,6 @@
   ],
   "background": {
     "service_worker": "extension/background.js"
-  },
-  "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; frame-src https://www.youtube.com https://www.youtube-nocookie.com"
   },
   "content_scripts": [
     {
