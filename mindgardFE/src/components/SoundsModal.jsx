@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Plus, Play, Pause, Upload, Trash2, Lock, Music } from "lucide-react";
+import { X, Plus, Play, Pause, Upload, Trash2, Lock, Music, Volume2 } from "lucide-react";
 import { useAudio } from "../context/AudioContext";
 import { soundService } from "../services/soundService";
 import { authService } from "../services/authService";
@@ -14,7 +14,8 @@ export default function SoundsModal({ isOpen, onClose }) {
 
   const {
     activeMusic, playMusic, isPlaying,
-    toggleSoundscape, activeSoundscapes
+    toggleSoundscape, activeSoundscapes, setSoundscapeVolume,
+    globalVolume, setGlobalVolume
   } = useAudio();
 
   const [isPlusUser, setIsPlusUser] = useState(false);
@@ -349,6 +350,22 @@ export default function SoundsModal({ isOpen, onClose }) {
                       </div>
                     </div>
                     <h3 className={`text-[10px] font-medium text-center truncate w-full ${isActive ? 'text-green-400' : 'text-gray-300'}`}>{sound.name}</h3>
+                    {/* Per-soundscape volume slider */}
+                    {isActive && (
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={activeSoundscapes[sound.id]?.volume || 0.5}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          setSoundscapeVolume(sound.id, parseFloat(e.target.value));
+                        }}
+                        className="w-14 h-1 appearance-none bg-white/10 rounded-full cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-green-400 [&::-webkit-slider-thumb]:cursor-pointer"
+                      />
+                    )}
                   </div>
                 )
               })}
@@ -471,7 +488,7 @@ export default function SoundsModal({ isOpen, onClose }) {
                 {activeMusic?.src && (
                   <div className="mt-2 pt-2 border-t border-gray-700/50 flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`} />
-                    <span className="text-[10px] text-gray-400 truncate">
+                    <span className="text-[10px] text-gray-400 truncate flex-1">
                       {isPlaying ? 'Đang phát' : 'Tạm dừng'}: {activeMusic.name}
                     </span>
                   </div>
@@ -481,17 +498,21 @@ export default function SoundsModal({ isOpen, onClose }) {
           )}
         </div>
 
-        {/* Footer */}
+        {/* Footer - Global Volume */}
         <div className="px-3 py-3 border-t border-gray-700/50">
-          <div className="flex gap-1.5 flex-wrap">
-            {["Deep", "Focus", "Positive", "Classical"].map((tag) => (
-              <button
-                key={tag}
-                className="px-2.5 py-1 bg-gray-700/50 hover:bg-gray-600 rounded-full text-white text-xs transition-colors"
-              >
-                {tag}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <Volume2 className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+            <span className="text-[10px] text-gray-400 shrink-0">Âm lượng</span>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value={globalVolume}
+              onChange={(e) => setGlobalVolume(parseFloat(e.target.value))}
+              className="flex-1 h-1.5 appearance-none bg-white/10 rounded-full cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:cursor-pointer"
+            />
+            <span className="text-[10px] text-gray-400 w-7 text-right">{Math.round(globalVolume * 100)}%</span>
           </div>
         </div>
       </div>

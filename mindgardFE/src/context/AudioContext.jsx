@@ -104,11 +104,22 @@ export const AudioProvider = ({ children }) => {
         });
     };
 
+    const setSoundscapeVolume = (id, volume) => {
+        setActiveSoundscapes(prev => {
+            if (!prev[id]) return prev;
+            const next = { ...prev, [id]: { ...prev[id], volume } };
+            return next;
+        });
+        if (soundscapeRefs.current[id]) {
+            soundscapeRefs.current[id].volume = volume * globalVolume;
+        }
+    };
+
     return (
         <AudioCtx.Provider value={{
             isPlaying, togglePlay, setPlaying,
             activeMusic, playMusic,
-            activeSoundscapes, toggleSoundscape,
+            activeSoundscapes, toggleSoundscape, setSoundscapeVolume,
             globalVolume, setGlobalVolume
         }}>
             {children}

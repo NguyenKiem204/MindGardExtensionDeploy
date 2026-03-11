@@ -198,11 +198,15 @@ export default function UserProfileModal({ isOpen, onClose, userName = "kiem", a
       label: isPlusUser ? "Quản lý gói Plus" : "Nâng cấp lên Plus",
       hasChevron: true,
       action: () => {
-        if (isAuthenticated) {
-          window.dispatchEvent(new CustomEvent('mindgard_open_subscription'));
-          onClose(); // Optional: close profile menu when opening sub modal
-        } else {
+        if (!isAuthenticated) {
           setShowLoginModal(true);
+        } else if (isPlusUser) {
+          window.dispatchEvent(new CustomEvent('mindgard_open_manage_plus'));
+          onClose();
+        } else {
+          // Open subscription modal for non-plus users
+          window.dispatchEvent(new CustomEvent('mindgard_open_subscription'));
+          onClose();
         }
       }
     },

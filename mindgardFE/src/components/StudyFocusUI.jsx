@@ -9,6 +9,8 @@ import FocusModeModal from "./FocusModeModal";
 import LeaderboardModal from "./LeaderboardModal";
 import LoginModal from "./LoginModal";
 import SubscriptionModal from "./SubscriptionModal";
+import ProModeSetupModal from "./ProModeSetupModal";
+import ManagePlusModal from "./ManagePlusModal";
 import { Play, Pause, SkipForward, Settings, Volume2, Image, MessageCircle, Zap, Clock, Music, Video, Grid3x3, StickyNote, BarChart3, MoreHorizontal, Minus, Maximize2, Square, X } from "lucide-react";
 import { authService } from "../services/authService";
 import { pomodoroService } from "../services/pomodoroService";
@@ -28,6 +30,7 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
   const [isFocusModeModalOpen, setIsFocusModeModalOpen] = useState(false);
   const [isLeaderboardModalOpen, setIsLeaderboardModalOpen] = useState(false);
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
+  const [isManagePlusModalOpen, setIsManagePlusModalOpen] = useState(false);
   const [isActivitiesSummaryModalOpen, setIsActivitiesSummaryModalOpen] = useState(false);
   const [todayFocusMinutes, setTodayFocusMinutes] = useState(0);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -36,6 +39,9 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
   const [focusTopic, setFocusTopic] = useState('Focus');
   const [backgroundType, setBackgroundType] = useState("image"); // "room", "video", "image"
   const [backgroundUrl, setBackgroundUrl] = useState("https://images.pexels.com/photos/1743381/pexels-photo-1743381.jpeg?auto=compress&cs=tinysrgb&w=1920&h=1080&fit=crop");
+  const [nextBackgroundUrl, setNextBackgroundUrl] = useState(null);
+  const [nextBackgroundType, setNextBackgroundType] = useState(null);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const [showTagDropdown, setShowTagDropdown] = useState(false);
   const [showTaskInput, setShowTaskInput] = useState(false);
   const [showSettingsButton, setShowSettingsButton] = useState(false);
@@ -52,12 +58,18 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
   const [mainDisplayMode, setMainDisplayMode] = useState('pomodoro'); // 'pomodoro' | 'clock'
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  // Pro Mode state
+  const [isProModeSetupOpen, setIsProModeSetupOpen] = useState(false);
+  const [proModePlan, setProModePlan] = useState(null);
+  // proModePlan = { sessions: [{type, duration}, ...], currentIndex: 0, focusStyle, totalMinutes }
+
   // Pomodoro Settings
   const [timerSoundEnabled, setTimerSoundEnabled] = useState(true);
   const [autoStartEnabled, setAutoStartEnabled] = useState(true);
   const [hideSecondsEnabled, setHideSecondsEnabled] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [pendingAutoStart, setPendingAutoStart] = useState(false);
 
   // Check authentication on mount and when auth changes
   useEffect(() => {
@@ -87,12 +99,28 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
     };
   }, [forceShowLogin, showLoginModalOnly]);
 
-  // Listen for global subscription modal trigger
+  // Listen for global subscription modal triggers
   useEffect(() => {
     const handleOpenSubscription = () => setIsSubscriptionModalOpen(true);
+    const handleOpenManagePlus = () => setIsManagePlusModalOpen(true);
     window.addEventListener('mindgard_open_subscription', handleOpenSubscription);
-    return () => window.removeEventListener('mindgard_open_subscription', handleOpenSubscription);
+    window.addEventListener('mindgard_open_manage_plus', handleOpenManagePlus);
+    return () => {
+      window.removeEventListener('mindgard_open_subscription', handleOpenSubscription);
+      window.removeEventListener('mindgard_open_manage_plus', handleOpenManagePlus);
+    };
   }, []);
+
+  // Auto-start: triggered by pendingAutoStart flag after state settles
+  useEffect(() => {
+    if (pendingAutoStart && !isRunning) {
+      const timer = setTimeout(() => {
+        setPendingAutoStart(false);
+        toggleTimer();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [pendingAutoStart, isRunning]);
 
   const isFocusing = isRunning && isFocusMode;
   const pipVideoRef = useRef(null);
@@ -864,6 +892,8 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
                   taskTitle: taskInput || "Deep work",
                   isPartial: false,
                 });
+                // Update local today stats
+                setTodayFocusMinutes(prev => prev + completedMin);
               } catch (e) {
                 console.error("[StudyFocusUI] Failed to record completed session:", e);
               }
@@ -877,16 +907,23 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
           endTimeRef.current = null;
           startTimeRef.current = null;
 
-          const nextIsFocus = !isFocusMode;
-          setIsFocusMode(nextIsFocus);
-          const nextDuration = nextIsFocus ? focusDuration : breakDuration;
-          setTimeLeft(nextDuration * 60);
+          // Pro Mode: advance to next session in plan
+          if (proModePlan) {
+            const hasMore = proModeAdvance();
+            if (hasMore && autoStartEnabled) {
+              setPendingAutoStart(true);
+            }
+          } else {
+            // Normal mode: toggle focus <-> break
+            const nextIsFocus = !isFocusMode;
+            setIsFocusMode(nextIsFocus);
+            const nextDuration = nextIsFocus ? focusDuration : breakDuration;
+            setTimeLeft(nextDuration * 60);
 
-          // Auto-start next session
-          if (autoStartEnabled) {
-            setTimeout(() => {
-              toggleTimer();
-            }, 1000); // Small delay for UI clarity
+            // Auto-start next session
+            if (autoStartEnabled) {
+              setPendingAutoStart(true);
+            }
           }
         }
       }, 250);
@@ -1026,16 +1063,17 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
   };
 
   const handleBackgroundSelect = (url, type) => {
-    console.log('Background selected:', { url, type });
-    setBackgroundUrl(url);
-    setBackgroundType(type);
+    console.log('Background selected (preloading):', { url, type });
 
-    // Save to localStorage
+    // Instead of setting immediately, we queue it to nextBackground
+    // which triggers the invisible image/video to load.
+    // Once loaded, the component will swap them.
+    setNextBackgroundUrl(url);
+    setNextBackgroundType(type);
+
+    // Save to localStorage immediately so it's persisted
     localStorage.setItem('mindgard_background_type', type);
     localStorage.setItem('mindgard_background_url', url);
-    console.log('Background saved to localStorage:', { type, url });
-
-    console.log('State updated - backgroundType:', type, 'backgroundUrl:', url);
   };
 
   const resetToDefaultBackground = () => {
@@ -1117,6 +1155,50 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
     }
   };
 
+  // Pro Mode: start plan
+  const handleStartProPlan = (plan) => {
+    setProModePlan(plan);
+    // Set timer to the first session
+    const first = plan.sessions[0];
+    const isFocus = first.type === 'focus';
+    setIsFocusMode(isFocus);
+    setFocusDuration(isFocus ? first.duration : focusDuration);
+    setBreakDuration(!isFocus ? first.duration : breakDuration);
+    setTimeLeft(first.duration * 60);
+    setIsRunning(false);
+    endTimeRef.current = null;
+    startTimeRef.current = null;
+  };
+
+  // Pro Mode: exit
+  const handleExitProMode = () => {
+    setProModePlan(null);
+    setIsRunning(false);
+    setIsFocusMode(true);
+    setTimeLeft(focusDuration * 60);
+    endTimeRef.current = null;
+    startTimeRef.current = null;
+  };
+
+  // Pro Mode: advance to next session
+  const proModeAdvance = () => {
+    if (!proModePlan) return false;
+    const nextIndex = proModePlan.currentIndex + 1;
+    if (nextIndex >= proModePlan.sessions.length) {
+      // All sessions complete!
+      setProModePlan(null);
+      return false; // signal: plan finished
+    }
+    const next = proModePlan.sessions[nextIndex];
+    const isFocus = next.type === 'focus';
+    setProModePlan(prev => ({ ...prev, currentIndex: nextIndex }));
+    setIsFocusMode(isFocus);
+    if (isFocus) setFocusDuration(next.duration);
+    else setBreakDuration(next.duration);
+    setTimeLeft(next.duration * 60);
+    return true; // signal: more sessions remain
+  };
+
   return (
     <div className="relative min-h-screen overflow-hidden">
       {/* Hide Chrome's Focus Dashboard bar */}
@@ -1141,7 +1223,59 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
           filter: none !important;
           backdrop-filter: none !important;
         }
+
+        /* Seamless transition classes */
+        .bg-layer {
+          position: absolute;
+          inset: 0;
+          transition: opacity 0.8s ease-in-out;
+          z-index: 0;
+        }
+        .bg-layer.active {
+          opacity: 1;
+        }
+        .bg-layer.inactive {
+          opacity: 0;
+          pointer-events: none;
+        }
       `}</style>
+
+      {/* Background Preload triggers */}
+      {nextBackgroundUrl && nextBackgroundType === "image" && (
+        <img
+          src={nextBackgroundUrl}
+          style={{ display: 'none' }}
+          onLoad={() => {
+            setBackgroundUrl(nextBackgroundUrl);
+            setBackgroundType(nextBackgroundType);
+            setIsTransitioning(true);
+            setTimeout(() => {
+              setNextBackgroundUrl(null);
+              setNextBackgroundType(null);
+              setIsTransitioning(false);
+            }, 800);
+          }}
+          alt="preload"
+        />
+      )}
+      {nextBackgroundUrl && (nextBackgroundType === "video" || nextBackgroundType === "motion") && (
+        <video
+          src={nextBackgroundUrl}
+          style={{ display: 'none' }}
+          preload="auto"
+          onCanPlay={() => {
+            setBackgroundUrl(nextBackgroundUrl);
+            setBackgroundType(nextBackgroundType);
+            setIsTransitioning(true);
+            setTimeout(() => {
+              setNextBackgroundUrl(null);
+              setNextBackgroundType(null);
+              setIsTransitioning(false);
+            }, 800);
+          }}
+        />
+      )}
+
       {/* Default Background - only show when backgroundType is room */}
       {backgroundType === "room" && (
         <>
@@ -1344,8 +1478,8 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
             </div>
           </div>
         </div>
-      ) : backgroundType === "video" ? (
-        <div className="absolute inset-0 video-background">
+      ) : backgroundType === "video" || backgroundType === "motion" ? (
+        <div className={`absolute inset-0 video-background bg-layer ${isTransitioning ? 'opacity-80' : 'active'}`}>
           <video
             key={backgroundUrl} // Force re-render when URL changes
             autoPlay
@@ -1362,12 +1496,6 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
               console.log('Video error:', e);
               console.log('Failed to load video:', backgroundUrl);
             }}
-            onLoadStart={() => {
-              console.log('Video loading started:', backgroundUrl);
-            }}
-            onCanPlay={() => {
-              console.log('Video can play:', backgroundUrl);
-            }}
           >
             <source src={backgroundUrl} type="video/mp4" />
             Your browser does not support the video tag.
@@ -1375,15 +1503,27 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
         </div>
       ) : (
         <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          className={`absolute inset-0 bg-cover bg-center bg-no-repeat bg-layer ${isTransitioning ? 'opacity-80' : 'active'}`}
           style={{
             backgroundImage: `url(${backgroundUrl})`,
             filter: 'none',
-            opacity: 1,
-            zIndex: 0
+            zIndex: 0,
+            backgroundColor: '#000'
           }}
         >
         </div>
+      )}
+
+      {/* Keep the old background visible underneath while transitioning */}
+      {isTransitioning && nextBackgroundUrl && (
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat bg-layer inactive"
+          style={{
+            backgroundImage: `url(${nextBackgroundUrl})`,
+            zIndex: -1,
+            backgroundColor: '#000'
+          }}
+        ></div>
       )}
 
       {/* Header */}
@@ -1489,9 +1629,9 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
             <BarChart3 className="w-5 h-5" />
           </button>
           <button
-            onClick={resetToDefaultBackground}
-            className="p-2 bg-black/20 hover:bg-black/50 rounded-lg transition border border-white/10"
-            title="Reset to default room"
+            onClick={() => { }}
+            className="p-2 bg-black/20 rounded-lg border border-white/10 opacity-50 cursor-not-allowed"
+            title="Tính năng Rooms chưa triển khai"
           >
             <Video className="w-5 h-5" />
           </button>
@@ -1738,6 +1878,29 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
                 </div>
               )}
 
+              {/* Pro Mode Progress Indicator */}
+              {mainDisplayMode === 'pomodoro' && proModePlan && (() => {
+                const plan = proModePlan;
+                const totalSessions = plan.sessions.filter(s => s.type === 'focus').length;
+                const currentFocusIdx = plan.sessions.slice(0, plan.currentIndex + 1).filter(s => s.type === 'focus').length;
+                const remainingMin = plan.sessions.slice(plan.currentIndex).reduce((sum, s) => sum + s.duration, 0);
+                const formatDur = (m) => m >= 60 ? `${Math.floor(m / 60)}h${m % 60 > 0 ? m % 60 + 'm' : ''}` : `${m}m`;
+                return (
+                  <div className="flex items-center justify-center gap-1.5 mb-5 text-white/40 text-xs">
+                    <span>{currentFocusIdx}/{totalSessions}</span>
+                    <span>·</span>
+                    <span>{formatDur(remainingMin)} còn lại</span>
+                    <button
+                      onClick={handleExitProMode}
+                      className="ml-1 w-4 h-4 rounded-full hover:bg-white/10 flex items-center justify-center text-white/30 hover:text-white/70 transition"
+                      title="Thoát Pro Mode"
+                    >
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
+                );
+              })()}
+
               {/* Play/Pause/Stop Button - only in pomodoro mode */}
               {mainDisplayMode === 'pomodoro' && (
                 <button
@@ -1762,6 +1925,13 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
 
       {/* Bottom Left Navigation */}
       <nav className="absolute bottom-8 left-8 flex gap-3">
+        <button
+          onClick={() => setIsProModeSetupOpen(true)}
+          className={`p-4 rounded-2xl transition border ${proModePlan ? 'bg-gradient-to-r from-orange-500/30 to-pink-500/30 border-orange-500/30' : 'bg-black/20 hover:bg-black/50 border-white/10'}`}
+          title="Pro Mode"
+        >
+          <Zap className={`w-5 h-5 ${proModePlan ? 'text-orange-400' : 'text-white/90'}`} />
+        </button>
         <button
           onClick={() => setIsNoteModalOpen(true)}
           className="p-4 bg-black/20 hover:bg-black/50 rounded-2xl transition border border-white/10"
@@ -1868,6 +2038,7 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
           }
           setNotificationsEnabled(!notificationsEnabled);
         }}
+        proModePlan={proModePlan}
       />
 
       {/* Focus Mode Modal - large centered */}
@@ -1902,9 +2073,21 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
         }}
       />
 
+      <ManagePlusModal
+        isOpen={isManagePlusModalOpen}
+        onClose={() => setIsManagePlusModalOpen(false)}
+      />
+
       <ActivitiesSummaryModal
         isOpen={isActivitiesSummaryModalOpen}
         onClose={() => setIsActivitiesSummaryModalOpen(false)}
+      />
+
+      {/* Pro Mode Setup Modal */}
+      <ProModeSetupModal
+        isOpen={isProModeSetupOpen}
+        onClose={() => setIsProModeSetupOpen(false)}
+        onStartPlan={handleStartProPlan}
       />
     </div>
   );

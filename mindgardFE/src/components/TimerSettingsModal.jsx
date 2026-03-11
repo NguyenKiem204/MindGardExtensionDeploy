@@ -20,7 +20,9 @@ export default function TimerSettingsModal({
   hideSecondsEnabled,
   onHideSecondsToggle,
   notificationsEnabled,
-  onNotificationsToggle
+  onNotificationsToggle,
+  // Pro Mode props
+  proModePlan,
 }) {
   const [localFocusTime, setLocalFocusTime] = useState(focusTime);
   const [localBreakTime, setLocalBreakTime] = useState(breakTime);
@@ -74,6 +76,19 @@ export default function TimerSettingsModal({
             <X className="w-3 h-3" />
           </button>
         </div>
+
+        {/* Pro Mode indicator */}
+        {proModePlan && (() => {
+          const totalFocusSessions = proModePlan.sessions.filter(s => s.type === 'focus').length;
+          const currentFocusIdx = proModePlan.sessions.slice(0, proModePlan.currentIndex + 1).filter(s => s.type === 'focus').length;
+          return (
+            <div className="mb-3 px-2.5 py-1.5 bg-orange-500/15 rounded-lg border border-orange-500/20 flex items-center gap-2">
+              <span className="text-[10px] font-bold text-orange-400 uppercase tracking-wider">Pro Mode</span>
+              <span className="text-[10px] text-white/50">•</span>
+              <span className="text-[10px] text-white/70">Session {currentFocusIdx}/{totalFocusSessions}</span>
+            </div>
+          );
+        })()}
 
         {/* Action Buttons */}
         <div className="grid grid-cols-1 gap-2 mb-5">

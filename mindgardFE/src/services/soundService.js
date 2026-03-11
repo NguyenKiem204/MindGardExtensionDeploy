@@ -5,52 +5,60 @@ export const soundService = {
         // Nhạc có sẵn - hardcoded, không phụ thuộc backend
         return [
             {
-                id: "serene-view",
-                name: "Serene View",
-                thumbnail: "https://images.unsplash.com/photo-1494232410401-ad00d5433cfa?w=200&h=200&fit=crop",
-                src: "https://assets.mixkit.co/music/443/443.mp3",
-                type: "MP3",
-                category: "Focus"
-            },
-            {
-                id: "sweet-september",
-                name: "Sweet September",
-                thumbnail: "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=200&h=200&fit=crop",
-                src: "https://assets.mixkit.co/music/282/282.mp3",
-                type: "MP3",
-                category: "Focus"
-            },
-            {
-                id: "curiosity",
-                name: "Curiosity",
-                thumbnail: "https://images.unsplash.com/photo-1520523839897-bd0b52f945a0?w=200&h=200&fit=crop",
-                src: "https://assets.mixkit.co/music/480/480.mp3",
-                type: "MP3",
-                category: "Deep"
-            },
-            {
-                id: "sleepy-cat",
-                name: "Sleepy Cat",
-                thumbnail: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=200&h=200&fit=crop",
-                src: "https://assets.mixkit.co/music/135/135.mp3",
+                id: "canon-in-d",
+                name: "Canon in D - Pachelbel",
+                thumbnail: "https://images.unsplash.com/photo-1513883049090-d0b7439799bf?w=200&h=200&fit=crop",
+                src: "https://pixabay.com/music/download/canon-in-d-pachelbel-497279.mp3",
                 type: "MP3",
                 category: "Classical"
             },
             {
-                id: "majestic",
-                name: "Majestic",
-                thumbnail: "https://images.unsplash.com/photo-1507838153414-b4b713384a76?w=200&h=200&fit=crop",
-                src: "https://assets.mixkit.co/music/475/475.mp3",
+                id: "river-flows-piano",
+                name: "River Flows in You - Piano",
+                thumbnail: "https://images.unsplash.com/photo-1552422535-c45813c61732?w=200&h=200&fit=crop",
+                src: "https://pixabay.com/music/download/river-flows-in-you-piano-497277.mp3",
                 type: "MP3",
-                category: "Positive"
+                category: "Classical"
             },
             {
-                id: "pop-vibes",
-                name: "Pop Vibes",
-                thumbnail: "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=200&h=200&fit=crop",
-                src: "https://assets.mixkit.co/music/695/695.mp3",
+                id: "beautiful-in-white-canon",
+                name: "Beautiful in White x Canon in D - Piano Cover",
+                thumbnail: "https://images.unsplash.com/photo-1513883049090-d0b7439799bf?w=200&h=200&fit=crop",
+                src: "https://pixabay.com/music/download/beautiful-in-white-x-canon-in-d-piano-cover-by-riyandi-kusuma-497280.mp3",
                 type: "MP3",
-                category: "Positive"
+                category: "Classical"
+            },
+            {
+                id: "call-of-silence",
+                name: "Call of Silence",
+                thumbnail: "https://images.unsplash.com/photo-1552422535-c45813c61732?w=200&h=200&fit=crop",
+                src: "https://pixabay.com/music/download/call-of-silence-497282.mp3",
+                type: "MP3",
+                category: "Classical"
+            },
+            {
+                id: "senbonzakura-violin",
+                name: "Senbonzakura - Violin Cover by Lindsey Stirling",
+                thumbnail: "https://images.unsplash.com/photo-1513883049090-d0b7439799bf?w=200&h=200&fit=crop",
+                src: "https://pixabay.com/music/download/senbonzakura-violin-cover-by-lindsey-stirling-497283.mp3",
+                type: "MP3",
+                category: "Classical"
+            },
+            {
+                id: "past-lives-lyrics",
+                name: "Past Lives Lyrics",
+                thumbnail: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=200&h=200&fit=crop",
+                src: "https://pixabay.com/music/download/past-lives-lyrics-497284.mp3",
+                type: "MP3",
+                category: "Focus"
+            },
+            {
+                id: "past-lives-violin",
+                name: "Past Lives - Violin Cover",
+                thumbnail: "https://images.unsplash.com/photo-1513883049090-d0b7439799bf?w=200&h=200&fit=crop",
+                src: "https://pixabay.com/music/download/past-lives-violin-cover-497285.mp3",
+                type: "MP3",
+                category: "Classical"
             }
         ];
     },

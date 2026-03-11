@@ -344,7 +344,7 @@ export default function SubscriptionModal({ isOpen, onClose, onUpgradeSuccess })
                                         <ShieldCheck className="w-5 h-5 text-green-400" />
                                         <div>14-day money-back guarantee</div>
                                     </div>
-                                    <div className="text-white/80 text-sm">Got question?<a href="mailto:david@studyfoc.us" className="font-bold underline ml-1">Email us!</a></div>
+                                    <div className="text-white/80 text-sm">Got question?<a href="mailto:nkiem347@gmail.com" className="font-bold underline ml-1">Email us!</a></div>
                                 </div>
 
                                 <div className="relative text-center text-white/90 text-sm sm:text-base rounded-xl p-4 overflow-hidden bg-gradient-to-r from-white/20 via-white/10 to-white/20">
@@ -380,7 +380,7 @@ export default function SubscriptionModal({ isOpen, onClose, onUpgradeSuccess })
                                         </div>
                                         <div className="bg-black/40 px-5 py-4 space-y-1.5">
                                             <div className="text-white font-semibold text-md">Need help?</div>
-                                            <div className="text-white/70 text-sm">Email us at david@mindgard.com or join the MindGard Discord.</div>
+                                            <div className="text-white/70 text-sm">Email us at nkiem347@gmail.com or join the MindGard Discord.</div>
                                         </div>
                                     </div>
                                 </div>
