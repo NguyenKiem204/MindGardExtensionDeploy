@@ -286,7 +286,10 @@ public class AuthService {
     }
 
     public void clearRefreshTokenCookie(HttpServletResponse response) {
+        // Clear the new cookie path
         response.addHeader("Set-Cookie", "refreshToken=; Path=/api/auth; HttpOnly; Secure; Max-Age=0; SameSite=None");
+        // Clear the old cookie path (legacy) just in case it's stuck in the browser
+        response.addHeader("Set-Cookie", "refreshToken=; Path=/api/auth/refresh; HttpOnly; Secure; Max-Age=0; SameSite=Strict");
     }
 
     private AuthResponse buildAuthResponse(User user, String accessToken, String refreshToken) {
