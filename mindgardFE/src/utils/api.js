@@ -35,14 +35,21 @@ export const authManager = {
   clearTokens: () => {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("tokenExpiresAt");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("mindgard_auth");
+    if (typeof chrome !== "undefined" && chrome.storage) {
+      chrome.storage.local.remove(['token', 'auth_token', 'jwt']);
+    }
+    // Dispatch events so UI components know auth is cleared
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("mindgard_auth_cleared"));
+      window.dispatchEvent(new CustomEvent("mindgard_auth_changed", { detail: { authenticated: false } }));
+    }
   },
 
   refreshToken: async () => {
     try {
-      console.log("[Auth] Calling /auth/refresh (cookie based) ...", {
-        baseURL:
-          import.meta.env.VITE_API_BASE_URL || "https://kiemnv.shop/api",
-      });
+      console.log("[Auth] Calling /auth/refresh (cookie based) ...");
       const response = await axios.post(
         `${import.meta.env.VITE_API_BASE_URL || "https://kiemnv.shop/api"
         }/auth/refresh`,
@@ -57,16 +64,14 @@ export const authManager = {
       );
 
       if (response.data.success) {
-        const { accessToken, expiresAt } = response.data.data;
+        const data = response.data.data;
+        const expiresInSec = data.expiresIn || Math.floor((new Date(data.expiresAt) - new Date()) / 1000);
         console.log("[Auth] Refresh success", {
-          expiresAt,
-          hasToken: !!accessToken,
+          expiresInSec,
+          hasToken: !!data.accessToken,
         });
-        authManager.setAccessToken(
-          accessToken,
-          Math.floor((new Date(expiresAt) - new Date()) / 1000)
-        );
-        return accessToken;
+        authManager.setAccessToken(data.accessToken, expiresInSec);
+        return data.accessToken;
       } else {
         console.warn("[Auth] Refresh response not success", response.data);
         throw new Error("Refresh token failed");
@@ -76,36 +81,6 @@ export const authManager = {
         status: error?.response?.status,
         data: error?.response?.data,
       });
-      authManager.clearTokens();
-      throw error;
-    }
-  },
-
-  refreshTokenWithBody: async (refreshToken) => {
-    try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_BASE_URL || "https://kiemnv.shop/api"
-        }/auth/refresh-token`,
-        { refreshToken },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            "ngrok-skip-browser-warning": "true",
-          },
-        }
-      );
-
-      if (response.data.success) {
-        const { accessToken, expiresAt } = response.data.data;
-        authManager.setAccessToken(
-          accessToken,
-          Math.floor((new Date(expiresAt) - new Date()) / 1000)
-        );
-        return accessToken;
-      } else {
-        throw new Error("Refresh token failed");
-      }
-    } catch (error) {
       authManager.clearTokens();
       throw error;
     }
@@ -240,15 +215,15 @@ api.interceptors.response.use(
           }
         );
         if (refreshResponse.data.success) {
-          const { accessToken, expiresAt } = refreshResponse.data.data;
-          const expiresIn = Math.floor(
-            (new Date(expiresAt) - new Date()) / 1000
+          const data = refreshResponse.data.data;
+          const expiresInSec = data.expiresIn || Math.floor(
+            (new Date(data.expiresAt) - new Date()) / 1000
           );
           console.log("[Auth] Interceptor refresh success", {
-            expiresAt,
-            expiresIn,
+            expiresInSec,
           });
-          authManager.setAccessToken(accessToken, expiresIn);
+          const accessToken = data.accessToken;
+          authManager.setAccessToken(accessToken, expiresInSec);
           api.defaults.headers.common[
             "Authorization"
           ] = `Bearer ${accessToken}`;

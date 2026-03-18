@@ -17,9 +17,7 @@ const persistAuth = (authData) => {
   } else if (authData.expiresAt) {
     localStorage.setItem("tokenExpiresAt", new Date(authData.expiresAt).getTime().toString());
   }
-  if (authData.refreshToken) {
-    localStorage.setItem("refreshToken", authData.refreshToken);
-  }
+  // refreshToken is stored in HttpOnly cookie only — not in localStorage
 };
 
 const loadAuth = () => {
@@ -210,12 +208,9 @@ export const authService = {
   },
 
   logout: async () => {
-    const cached = loadAuth();
     try {
-      const refreshToken = cached?.refreshToken || localStorage.getItem("refreshToken");
-      if (refreshToken) {
-        await api.post("/auth/logout", { refreshToken });
-      }
+      // Cookie-based: withCredentials sends HttpOnly refreshToken cookie
+      await api.post("/auth/logout");
     } catch (err) {
       // Swallow server errors but still clear local state
       console.warn("Logout request failed", err);

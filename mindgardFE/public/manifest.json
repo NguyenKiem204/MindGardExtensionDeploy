@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MindGard",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Transform your New Tab into a space for absolute focus with Pomodoro, relaxing sounds, task management, and AI-powered web blocking.",
   "icons": {
     "16": "logo.png",

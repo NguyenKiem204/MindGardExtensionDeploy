@@ -216,10 +216,9 @@ public class AuthService {
         String currentIpAddress = currentRequest != null ? getClientIpAddress(currentRequest) : "Unknown";
 
         if (!storedToken.getIpAddress().equals(currentIpAddress)) {
-            log.warn("Refresh token used from different IP. Revoking token. Original IP: {}, Current IP: {}",
+            log.warn("Refresh token used from different IP. Original IP: {}, Current IP: {}. Allowing for extension/mobile.",
                     storedToken.getIpAddress(), currentIpAddress);
-            refreshTokenRepository.revokeToken(oldRefreshToken);
-            throw new TokenException("Refresh token used from unauthorized location.");
+            // Don't revoke - IP can change for extension/mobile/VPN users
         }
 
         if (!storedToken.isValid()) {
@@ -278,12 +277,16 @@ public class AuthService {
     private void addRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
         long maxAgeSeconds = jwtProperties.getRefreshTokenExpiration() / 1000;
 
-        String cookieValue = String.format("%s=%s; Path=/api/auth/refresh; HttpOnly; Secure; Max-Age=%d; SameSite=Strict",
+        String cookieValue = String.format("%s=%s; Path=/api/auth; HttpOnly; Secure; Max-Age=%d; SameSite=None",
                 "refreshToken",
                 refreshToken,
                 maxAgeSeconds);
 
         response.addHeader("Set-Cookie", cookieValue);
+    }
+
+    public void clearRefreshTokenCookie(HttpServletResponse response) {
+        response.addHeader("Set-Cookie", "refreshToken=; Path=/api/auth; HttpOnly; Secure; Max-Age=0; SameSite=None");
     }
 
     private AuthResponse buildAuthResponse(User user, String accessToken, String refreshToken) {

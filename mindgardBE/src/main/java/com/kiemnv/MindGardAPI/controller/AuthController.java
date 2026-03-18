@@ -94,10 +94,23 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    @Operation(summary = "Logout (revoke refresh token)", description = "Revoke a refresh token in DB. If you use refresh cookie flow, call /refresh to rotate and then revoke the current token.")
+    @Operation(summary = "Logout (revoke refresh token)", description = "Revoke the refresh token from HttpOnly cookie and clear it.")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Logout successful")
-    public ResponseEntity<ApiResponse<Void>> logout(@Valid @RequestBody RefreshTokenRequest request) {
-        authService.logout(request.getRefreshToken());
+    public ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest request, HttpServletResponse response) {
+        String refreshToken = null;
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("refreshToken".equals(cookie.getName())) {
+                    refreshToken = cookie.getValue();
+                    break;
+                }
+            }
+        }
+        if (refreshToken != null) {
+            authService.logout(refreshToken);
+        }
+        // Clear the refresh token cookie
+        authService.clearRefreshTokenCookie(response);
         return ResponseEntity.ok(ApiResponse.success(null, "Logout successful"));
     }
 

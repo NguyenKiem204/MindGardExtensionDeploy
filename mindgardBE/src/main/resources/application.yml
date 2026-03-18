@@ -1,7 +1,7 @@
 app:
   jwt:
     secret-key: "${APP_JWT_SECRET_KEY}"
-    access-token-expiration: 900000 # 15 minutes
+    access-token-expiration: 30000 # 15 minutes
     refresh-token-expiration: 2592000000 # 30 days
     issuer: "MindGard Extension Productivity"
 
