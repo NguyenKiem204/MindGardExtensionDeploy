@@ -49,10 +49,10 @@ export const authManager = {
 
   refreshToken: async () => {
     try {
-      console.log("[Auth] Calling /auth/refresh (cookie based) ...");
+      console.log("[Auth] Calling /auth/refresh-token (cookie based) ...");
       const response = await axios.post(
         `${import.meta.env.VITE_API_BASE_URL || "https://kiemnv.shop/api"
-        }/auth/refresh`,
+        }/auth/refresh-token`,
         {},
         {
           withCredentials: true,
@@ -182,7 +182,7 @@ api.interceptors.response.use(
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
-      originalRequest.url !== "/auth/refresh"
+      originalRequest.url !== "/auth/refresh-token"
     ) {
       console.warn("[HTTP] 401 detected; attempting refresh", {
         url: originalRequest.url,
@@ -202,9 +202,9 @@ api.interceptors.response.use(
       }
       isRefreshing = true;
       try {
-        console.log("[Auth] POST /auth/refresh (interceptor) ...");
+        console.log("[Auth] POST /auth/refresh-token (interceptor) ...");
         const refreshResponse = await axios.post(
-          `${api.defaults.baseURL}/auth/refresh`,
+          `${api.defaults.baseURL}/auth/refresh-token`,
           {},
           {
             withCredentials: true,
