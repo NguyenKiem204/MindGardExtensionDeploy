@@ -21,25 +21,20 @@ export default function LeaderboardModal({ isOpen, onClose }) {
   }, [isOpen, activeTab, activeFilter, currentDate]);
 
   const loadLeaderboard = async () => {
-    console.log("[LeaderboardModal] loadLeaderboard() called", {
-      activeTab,
-      activeFilter,
-      currentDate: currentDate.toISOString(),
-    });
     setLoading(true);
     setError("");
     try {
-      console.log("[LeaderboardModal] Calling API...");
+
       const result = await leaderboardService.getRealLeaderboard(
         activeFilter,
         currentDate,
         activeTab
       );
-      console.log("[LeaderboardModal] API response:", result);
+
       setData(result.entries || []);
       setCurrentUser(result.currentUser || null);
     } catch (err) {
-      console.error("[LeaderboardModal] Error loading leaderboard:", err);
+
       setError(err?.response?.data?.message || err?.message || "Failed to load leaderboard");
       setData([]);
       setCurrentUser(null);
@@ -273,7 +268,7 @@ export default function LeaderboardModal({ isOpen, onClose }) {
                             setProfileUser(res.data.data);
                           }
                         } catch (err) {
-                          console.warn("Failed to load profile:", err);
+
                         }
                       }}
                     >

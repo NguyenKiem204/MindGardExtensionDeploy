@@ -38,7 +38,7 @@ export default function SoundsModal({ isOpen, onClose }) {
       setLoading(true);
       soundService.getMusic()
         .then(data => setMusicList(data))
-        .catch(err => console.error(err))
+        .catch(err => {})
         .finally(() => setLoading(false));
     }
   }, [isOpen, activeTab, musicList.length]);
@@ -60,7 +60,7 @@ export default function SoundsModal({ isOpen, onClose }) {
           }));
           setUserMusicList(mapped);
         })
-        .catch(err => console.error(err));
+        .catch(err => {});
     }
   }, [isOpen, activeTab, isPlusUser]);
 
@@ -84,7 +84,6 @@ export default function SoundsModal({ isOpen, onClose }) {
         isCustom: true
       }]);
     } catch (err) {
-      console.error("Upload failed:", err);
       alert("Upload thất bại. Vui lòng thử lại.");
     } finally {
       setUploading(false);
@@ -98,7 +97,6 @@ export default function SoundsModal({ isOpen, onClose }) {
       await soundService.deleteUserMusic(track.id);
       setUserMusicList(prev => prev.filter(m => m.id !== track.id));
     } catch (err) {
-      console.error("Delete failed:", err);
     }
   };
 

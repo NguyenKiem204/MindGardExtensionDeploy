@@ -25,7 +25,7 @@ export default function SceneModal({ isOpen, onClose, onSelectBackground }) {
     if (isOpen) {
       setTopTab("background");
       setActiveTab("stills");
-      console.log('Modal opened, reset to stills tab');
+
     }
   }, [isOpen]);
 
@@ -36,26 +36,26 @@ export default function SceneModal({ isOpen, onClose, onSelectBackground }) {
 
       setLoading(true);
       try {
-        console.log('🔧 Using PEXELS_CONFIG:');
-        console.log('- PEXELS_CONFIG:', PEXELS_CONFIG);
+
+
 
         const apiKey = PEXELS_CONFIG.API_KEY;
         const videoIds = PEXELS_CONFIG.VIDEO_IDS;
-        console.log('Loading videos from Pexels API...', { videoIds, apiKey: apiKey.substring(0, 10) + '...' });
+
 
         let results = [];
 
         // Try to load by video IDs first
         if (videoIds.length > 0) {
-          console.log('🔍 Attempting to load videos by ID:', videoIds);
+
 
           results = await Promise.all(
             videoIds.map(async (id, index) => {
-              console.log(`📹 Loading video ID ${id} (${index + 1}/${videoIds.length})`);
+
 
               try {
                 const url = `https://api.pexels.com/videos/videos/${id}`;
-                console.log(`🌐 Fetching URL: ${url}`);
+
 
                 const response = await fetch(url, {
                   headers: {
@@ -63,40 +63,16 @@ export default function SceneModal({ isOpen, onClose, onSelectBackground }) {
                   },
                 });
 
-                console.log(`📊 Response status for ID ${id}:`, response.status, response.statusText);
-                console.log(`📊 Response headers for ID ${id}:`, Object.fromEntries(response.headers.entries()));
+
+
 
                 if (!response.ok) {
                   const errorText = await response.text();
-                  console.error(`❌ HTTP error for ID ${id}:`, {
-                    status: response.status,
-                    statusText: response.statusText,
-                    errorText: errorText
-                  });
                   throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
                 }
 
                 const data = await response.json();
-                console.log(`✅ Successfully loaded video ID ${id}:`, {
-                  id: data.id,
-                  duration: data.duration,
-                  width: data.width,
-                  height: data.height,
-                  user: data.user?.name,
-                  videoFilesCount: data.video_files?.length || 0,
-                  hasImage: !!data.image
-                });
-
                 const file = data.video_files.find(f => f.quality === "hd") || data.video_files[0];
-                console.log(`🎬 Video file for ID ${id}:`, {
-                  quality: file?.quality,
-                  fileType: file?.file_type,
-                  width: file?.width,
-                  height: file?.height,
-                  hasLink: !!file?.link,
-                  link: file?.link ? file.link.substring(0, 50) + '...' : 'NO LINK'
-                });
-
                 const result = {
                   id: `pexels-${id}`,
                   name: data.user?.name || `Motion ${index + 1}`,
@@ -105,15 +81,10 @@ export default function SceneModal({ isOpen, onClose, onSelectBackground }) {
                   description: data.user?.name || `Focus motion video ${index + 1}`
                 };
 
-                console.log(`📋 Final result for ID ${id}:`, result);
+
                 return result;
 
               } catch (error) {
-                console.error(`❌ Error loading video ${id}:`, {
-                  message: error.message,
-                  stack: error.stack,
-                  name: error.name
-                });
                 return null;
               }
             })
@@ -121,13 +92,13 @@ export default function SceneModal({ isOpen, onClose, onSelectBackground }) {
 
           // Filter out null results
           const validResults = results.filter(result => result !== null);
-          console.log(`📊 Video ID results: ${validResults.length}/${videoIds.length} successful`);
+
           results = validResults;
         }
 
         // If no videos loaded by ID, try searching by keywords
         if (results.length === 0) {
-          console.log('No videos found by ID, searching by keywords...');
+
           const searchQueries = ['focus study', 'concentration', 'meditation', 'nature', 'rain', 'forest'];
 
           for (const query of searchQueries) {
@@ -156,21 +127,21 @@ export default function SceneModal({ isOpen, onClose, onSelectBackground }) {
                 }
               }
             } catch (error) {
-              console.error(`Error searching for ${query}:`, error);
+
             }
           }
         }
 
         // If still no videos, use fallback
         if (results.length === 0) {
-          console.log('No videos found, using fallback');
+
           results = getFallbackMotionScenes();
         }
 
         setMotionScenes(results);
-        console.log('Motion videos loaded:', results);
+
       } catch (error) {
-        console.error('Error loading motion videos:', error);
+
         // Fallback to static videos
         setMotionScenes(getFallbackMotionScenes());
       } finally {
@@ -261,7 +232,7 @@ export default function SceneModal({ isOpen, onClose, onSelectBackground }) {
   ];
 
   const handleSceneSelect = (scene) => {
-    console.log('Selecting scene:', scene);
+
     if (activeTab === "motion") {
       onSelectBackground(scene.video, "video");
     } else {

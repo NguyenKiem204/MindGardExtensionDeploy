@@ -68,7 +68,7 @@ export const soundService = {
             const res = await api.get("/sounds/all");
             return res.data?.data || [];
         } catch (error) {
-            console.warn("Failed to fetch user sounds:", error);
+
             return [];
         }
     },

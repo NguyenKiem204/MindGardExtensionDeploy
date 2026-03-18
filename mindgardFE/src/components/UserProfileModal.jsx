@@ -239,22 +239,23 @@ export default function UserProfileModal({ isOpen, onClose, userName = "kiem", a
       },
       disabled: !isAuthenticated
     },
-    { icon: null, label: "Discord", hasExternalLink: true, customIcon: "discord", dividerBefore: true },
-    { icon: null, label: "Chrome extension", hasExternalLink: true, customIcon: "puzzle" },
-    { icon: Grid3x3, label: "Our apps", hasChevron: true },
     { 
       icon: Gamepad2, 
       label: "Game luyện tập trung", 
       hasExternalLink: true, 
+      dividerBefore: true,
       action: () => window.open("https://mind-gard-game.vercel.app/", "_blank") 
     },
+    { icon: null, label: "Discord", hasExternalLink: true, customIcon: "discord" },
+    { icon: null, label: "Chrome extension", hasExternalLink: true, customIcon: "puzzle" },
+    { icon: Grid3x3, label: "Our apps", hasChevron: true },
     { icon: Search, label: "Find study room", hasChevron: true, dividerBefore: true },
     { icon: Settings, label: "App settings", hasChevron: true },
     { ...authMenuItem, dividerBefore: true, hasChevron: false },
   ];
 
   const handleItemClick = (item) => {
-    console.log(`Clicked: ${item.label}`);
+
     if (item.action) {
       item.action();
       return;

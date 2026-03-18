@@ -105,7 +105,7 @@ export default function FocusView() {
           });
         }
       } catch (error) {
-        console.error("Failed to load daily background:", error);
+
         // Fallback to manual background if Unsplash fails
         if (d.background) {
           setBackground(d.background);
@@ -130,7 +130,7 @@ export default function FocusView() {
         focusSessionActive: true,
         focusMode: focusMode,
       });
-      console.log('[FocusView] startFocus: focusSessionActive=true, focusMode=' + focusMode);
+
     } catch {
       window.chrome.storage.local.set({ focusSessionActive: true });
     }
@@ -142,7 +142,7 @@ export default function FocusView() {
   function exitFocus() {
     setViewMode("main");
     window.chrome.storage.local.set({ focusSessionActive: false });
-    console.log('[FocusView] exitFocus: focusSessionActive=false');
+
   }
 
   function onComplete({ durationMin, taskTitle }) {

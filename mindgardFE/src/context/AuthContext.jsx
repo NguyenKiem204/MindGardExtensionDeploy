@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }) => {
         clearAuth();
       }
     } catch (error) {
-      console.error("Auth check failed:", error);
+
       clearAuth();
     } finally {
       setLoading(false);
@@ -78,7 +78,7 @@ export const AuthProvider = ({ children }) => {
             return { success: false, message: "Failed to get user info" };
           }
         } catch (userError) {
-          console.error("Failed to get user info:", userError);
+
           clearAuth();
           return { success: false, message: "Failed to get user info" };
         }
@@ -86,7 +86,7 @@ export const AuthProvider = ({ children }) => {
         return { success: false, message: response.data.message };
       }
     } catch (error) {
-      console.error("Login error:", error);
+
       return {
         success: false,
         message: "Đăng nhập thất bại. Vui lòng kiểm tra email và mật khẩu.",

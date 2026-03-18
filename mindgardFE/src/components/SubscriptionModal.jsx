@@ -100,7 +100,7 @@ export default function SubscriptionModal({ isOpen, onClose, onUpgradeSuccess })
                     stopPolling();
                 }
             } catch (e) {
-                console.error("Polling error", e);
+
             }
         }, 3000); // Poll every 3 seconds
     };

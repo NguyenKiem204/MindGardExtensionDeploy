@@ -41,7 +41,7 @@ export async function getDailyBackground() {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Unsplash API error:", response.status, errorText);
+
       throw new Error(`Unsplash API error: ${response.status} - ${errorText}`);
     }
 
@@ -57,7 +57,7 @@ export async function getDailyBackground() {
 
     return backgroundUrl;
   } catch (error) {
-    console.error("Failed to fetch background:", error);
+
     // Return fallback gradient
     return null;
   }

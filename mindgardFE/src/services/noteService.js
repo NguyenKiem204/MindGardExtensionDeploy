@@ -6,7 +6,7 @@ export const noteService = {
             const res = await api.get(`/notes?page=${page}&size=${size}&sort=pinned,desc&sort=updatedAt,desc`);
             return res.data?.data?.content || [];
         } catch (error) {
-            console.warn("Failed to fetch notes:", error);
+
             return [];
         }
     },

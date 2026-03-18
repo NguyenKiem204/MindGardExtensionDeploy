@@ -40,7 +40,7 @@ export default function MiniTimerWindow() {
             if (savedBg) setBackgroundUrl(savedBg);
           } catch (e) { }
         } catch (e) {
-          console.error('Error syncing timer:', e);
+
         }
       }
     };

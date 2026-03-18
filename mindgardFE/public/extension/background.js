@@ -25,7 +25,7 @@ chrome.commands.onCommand.addListener(async (command) => {
           return;
         }
         chrome.tabs.sendMessage(tab.id, { type: 'toggle_quick_note' }).catch(err => {
-          console.log('[BG] toggle_quick_note ignored: Content script not loaded in this tab. Try reloading the page.', err.message);
+
         });
       }
     });
@@ -51,7 +51,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         let token = storageData.token || storageData.auth_token || storageData.jwt;
 
         if (!token) {
-          console.warn('[BG] No auth token found in storage.');
+
           sendResponse({ success: false, error: 'Authorization token not found. Please log in again via the New Tab.' });
           return;
         }
@@ -62,7 +62,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         }
 
         const apiUrl = 'https://kiemnv.shop/api/notes';
-        console.log(`[BG] Attempting to save note to ${apiUrl}. Token: ${token.substring(0, 10)}...${token.substring(token.length - 10)}`);
+
 
         const response = await fetch(apiUrl, {
           method: 'POST',
@@ -81,7 +81,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           sendResponse({ success: false, error: `API error ${response.status}: ${errText}` });
         }
       } catch (err) {
-        console.error('[BG] Save note error:', err);
+
         sendResponse({ success: false, error: err.message });
       }
     })();
@@ -92,20 +92,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'classify' || msg.type === 'check_ai_focus') {
     (async () => {
       const { url, title, description } = msg.payload || {};
-      console.log('[BG] Received message:', msg.type, '| URL:', url, '| Title:', title);
+
 
       // Check AI focus mode first (for YouTube)
       const isYouTubeWatch = /youtube\.com\/watch/.test(url);
-      console.log('[BG] Is YouTube watch?', isYouTubeWatch);
+
 
       if (isYouTubeWatch) {
         try {
           const sessionData = await chrome.storage.local.get(['focusSessionActive']);
-          console.log('[BG] focusSessionActive:', sessionData.focusSessionActive);
+
 
           if (sessionData.focusSessionActive) {
             const localData = await chrome.storage.local.get(['focusMode', 'currentFocusTopic', 'geminiApiKey']);
-            console.log('[BG] focusMode:', localData.focusMode, '| topic:', localData.currentFocusTopic, '| hasApiKey:', !!localData.geminiApiKey);
+
 
             if (localData.focusMode === 'ai' && localData.geminiApiKey) {
               const topic = localData.currentFocusTopic || 'Focus';
@@ -114,37 +114,37 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               const aiHit = aiCache.get(aiCacheKey);
               const nowMs = Date.now();
               if (aiHit && nowMs - aiHit.t < 60_000) {
-                console.log('[BG] Cache hit:', aiHit.v);
+
                 if (aiHit.v === 'unrelated') {
-                  console.log('[BG] Sending ai_distraction_warning (cached) to tab', sender.tab.id);
-                  try { chrome.tabs.sendMessage(sender.tab.id, { type: 'ai_distraction_warning', payload: { topic } }); } catch (e) { console.error('[BG] sendMessage error:', e); }
+
+                  try { chrome.tabs.sendMessage(sender.tab.id, { type: 'ai_distraction_warning', payload: { topic } }); } catch (e) {  }
                 }
                 return;
               }
 
-              console.log('[BG] Calling Gemini API for classification...');
+
               try {
                 const verdict = await classifyYouTubeWithTopic({ url, title, topic, key: localData.geminiApiKey });
                 aiCache.set(aiCacheKey, { t: nowMs, v: verdict });
-                console.log('[BG] ===== AI VERDICT:', verdict, '| Topic:', topic, '| Video:', title, '=====');
+
                 if (verdict === 'unrelated') {
-                  console.log('[BG] >>> SENDING ai_distraction_warning to tab', sender.tab.id);
-                  try { chrome.tabs.sendMessage(sender.tab.id, { type: 'ai_distraction_warning', payload: { topic } }); } catch (e) { console.error('[BG] sendMessage error:', e); }
+
+                  try { chrome.tabs.sendMessage(sender.tab.id, { type: 'ai_distraction_warning', payload: { topic } }); } catch (e) {  }
                 } else {
-                  console.log('[BG] Video is related, no warning needed.');
+
                 }
               } catch (e) {
-                console.error('[BG] Gemini API call FAILED:', e);
+
               }
               return; // handled by AI focus, skip general classification
             } else {
-              console.log('[BG] Not in AI mode or no API key. focusMode:', localData.focusMode);
+
             }
           } else {
-            console.log('[BG] Focus session not active, skipping AI check.');
+
           }
         } catch (e) {
-          console.error('[BG] AI focus check error:', e);
+
         }
       }
 
@@ -248,24 +248,24 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     'focusMode', 'currentFocusTopic', 'allowedDomains', 'blockedGroups', 'sessionBlocked'
   ]);
   const url = tab.url || '';
-  console.log('[FG] onUpdated', { tabId, url, focusMode, allowedDomains, blockedGroupsKeys: Object.keys(blockedGroups || {}), sessionBlockedHit: !!(sessionBlocked && sessionBlocked[url]) });
+
 
   // If already session-blocked, redirect immediately
   if (sessionBlocked && sessionBlocked[url]) {
-    console.log('[FG] sessionBlocked redirect');
-    try { await chrome.tabs.update(tabId, { url: chrome.runtime.getURL('extension/blocked.html') }); } catch (e) { console.warn('[FG] redirect fail', e); }
+
+    try { await chrome.tabs.update(tabId, { url: chrome.runtime.getURL('extension/blocked.html') }); } catch (e) {  }
     return;
   }
 
   if (focusMode === 'manual') {
     if (isAllowedUrl(url, allowedDomains || [])) {
-      console.log('[FG] manual allow matched');
+
       return; // explicit allow wins
     }
     const mergedBlocked = mergeBlockedDomains(blockedGroups || {});
     if (isBlockedByDomain(url, mergedBlocked)) {
-      console.log('[FG] manual block matched → redirect');
-      try { await chrome.tabs.update(tabId, { url: chrome.runtime.getURL('extension/blocked.html') }); } catch (e) { console.warn('[FG] redirect fail', e); }
+
+      try { await chrome.tabs.update(tabId, { url: chrome.runtime.getURL('extension/blocked.html') }); } catch (e) {  }
     }
     return;
   }
@@ -295,12 +295,12 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
       key: keyData.geminiApiKey,
     });
     aiCache.set(aiCacheKey, { t: nowMs, v: verdict });
-    console.log('[FG] AI classification:', { url, verdict, topic: currentFocusTopic });
+
     if (verdict === 'unrelated') {
       try { chrome.tabs.sendMessage(tabId, { type: 'ai_distraction_warning', payload: { topic: currentFocusTopic || 'Focus' } }); } catch { }
     }
   } catch (e) {
-    console.warn('[FG] AI classification error:', e);
+
   }
 });
 
@@ -311,13 +311,13 @@ chrome.webNavigation?.onCommitted?.addListener(async (details) => {
     const tabId = details.tabId;
     const url = details.url || '';
     const { focusMode, allowedDomains, blockedGroups } = await chrome.storage.local.get(['focusMode', 'allowedDomains', 'blockedGroups']);
-    console.log('[FG] onCommitted', { tabId, url, focusMode });
+
     if (focusMode !== 'manual') return;
     if (isAllowedUrl(url, allowedDomains || [])) return;
     const mergedBlocked = mergeBlockedDomains(blockedGroups || {});
     if (isBlockedByDomain(url, mergedBlocked)) {
-      console.log('[FG] manual block matched (onCommitted) → redirect');
-      try { await chrome.tabs.update(tabId, { url: chrome.runtime.getURL('extension/blocked.html') }); } catch (e) { console.warn('[FG] redirect fail', e); }
+
+      try { await chrome.tabs.update(tabId, { url: chrome.runtime.getURL('extension/blocked.html') }); } catch (e) {  }
     }
   } catch { }
 });
@@ -327,13 +327,13 @@ chrome.tabs.onActivated.addListener(async ({ tabId }) => {
     const tab = await chrome.tabs.get(tabId);
     const url = tab.url || '';
     const { focusMode, allowedDomains, blockedGroups } = await chrome.storage.local.get(['focusMode', 'allowedDomains', 'blockedGroups']);
-    console.log('[FG] onActivated', { tabId, url, focusMode });
+
     if (focusMode !== 'manual') return;
     if (isAllowedUrl(url, allowedDomains || [])) return;
     const mergedBlocked = mergeBlockedDomains(blockedGroups || {});
     if (isBlockedByDomain(url, mergedBlocked)) {
-      console.log('[FG] manual block matched (onActivated) → redirect');
-      try { await chrome.tabs.update(tabId, { url: chrome.runtime.getURL('extension/blocked.html') }); } catch (e) { console.warn('[FG] redirect fail', e); }
+
+      try { await chrome.tabs.update(tabId, { url: chrome.runtime.getURL('extension/blocked.html') }); } catch (e) {  }
     }
   } catch { }
 });
@@ -379,7 +379,7 @@ function isAllowedUrl(url, allowedList) {
     if (!allowedList || !allowedList.length) return false;
     const u = new URL(url);
     const host = u.hostname.replace(/^www\./, '');
-    const log = (...args) => { try { console.log('[FG] allowCheck', ...args); } catch { } };
+    const log = (...args) => { try {  } catch { } };
     for (const entry of allowedList) {
       if (!entry) continue;
       // Support object { name, url }

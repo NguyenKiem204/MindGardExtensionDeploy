@@ -22,35 +22,35 @@
     var url = location.href;
     var title = document.title || "";
 
-    console.log('[AI-FOCUS] checkAIFocus called | URL:', url, '| Title:', title);
+
 
     // Only check YouTube watch URLs
     if (!/youtube\.com\/watch/.test(url)) {
-      console.log('[AI-FOCUS] Not a YouTube watch URL, skipping.');
+
       return;
     }
 
     // Check if focus session is active (using local storage for cross-script reliability)
     try {
       var localData = await chrome.storage.local.get(['focusSessionActive', 'focusMode', 'currentFocusTopic', 'geminiApiKey']);
-      console.log('[AI-FOCUS] focusSessionActive:', localData.focusSessionActive);
+
       if (typeof localData.focusSessionActive === 'undefined') {
-        console.log('[AI-FOCUS] focusSessionActive is UNDEFINED. Keys present in storage.local:', Object.keys(localData));
+
       }
 
       if (!localData.focusSessionActive) {
-        console.log('[AI-FOCUS] Focus session not active, skipping. (Start the timer first!)');
+
         return;
       }
 
-      console.log('[AI-FOCUS] focusMode:', localData.focusMode, '| topic:', localData.currentFocusTopic, '| hasApiKey:', !!localData.geminiApiKey);
+
 
       if (localData.focusMode !== 'ai') {
-        console.log('[AI-FOCUS] Not in AI mode, skipping.');
+
         return;
       }
       if (!localData.geminiApiKey) {
-        console.log('[AI-FOCUS] No Gemini API key, skipping.');
+
         return;
       }
 
@@ -59,14 +59,14 @@
 
       // Check API cooldown (Skip if we hit a rate limit recently)
       if (Date.now() < apiCooldownUntil) {
-        console.log('[AI-FOCUS] API is on cooldown due to rate limit. Skipping check.');
+
         return;
       }
 
       // Check cache (10 minutes)
       var cacheKey = url;
       if (aiCache[cacheKey] && (Date.now() - aiCache[cacheKey].time < 600000)) {
-        console.log('[AI-FOCUS] Cache hit:', aiCache[cacheKey].verdict);
+
         if (aiCache[cacheKey].verdict === 'unrelated') {
           showDistractionAlert(topic);
         }
@@ -74,9 +74,9 @@
       }
 
       // Call Gemini API directly
-      console.log('[AI-FOCUS] Calling Gemini API...');
-      console.log('[AI-FOCUS] Topic:', topic);
-      console.log('[AI-FOCUS] Video title:', title);
+
+
+
 
       var endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
       var prompt = 'You are an AI focus assistant. The user is studying: "' + topic + '".\n' +
@@ -94,11 +94,11 @@
 
       if (!response.ok) {
         if (response.status === 429) {
-          console.error('[AI-FOCUS] Gemini API Quota Exceeded (429). Setting 1-minute cooldown.');
+
           apiCooldownUntil = Date.now() + 60000; // 1 minute cooldown
         } else {
           var errText = await response.text();
-          console.error('[AI-FOCUS] Gemini API error:', response.status, errText);
+
         }
         return;
       }
@@ -106,7 +106,7 @@
       var data = await response.json();
       var rawText = '';
       try { rawText = data.candidates[0].content.parts[0].text; } catch (e) { }
-      console.log('[AI-FOCUS] Gemini raw response:', rawText);
+
 
       var verdict = 'related';
       if (/unrelated/i.test(rawText)) {
@@ -118,17 +118,17 @@
       // Cache result
       aiCache[cacheKey] = { time: Date.now(), verdict: verdict };
 
-      console.log('[AI-FOCUS] ===== AI VERDICT:', verdict, '| Topic:', topic, '| Video Title:', title, '=====');
+
 
       if (verdict === 'unrelated') {
-        console.log('[AI-FOCUS] >>> RESULT: UNRELATED! Showing alert...');
+
         showDistractionAlert(topic);
       } else {
-        console.log('[AI-FOCUS] >>> RESULT: RELATED. Enjoy watching.');
+
       }
 
     } catch (e) {
-      console.error('[AI-FOCUS] Error:', e);
+
     }
   }
 
@@ -194,15 +194,15 @@
 
   // YouTube-specific SPA navigation event
   if (/youtube\.com/.test(location.hostname)) {
-    console.log('[AI-FOCUS] YouTube detected, adding yt-navigate-finish listener');
+
     window.addEventListener("yt-navigate-finish", function () {
-      console.log('[AI-FOCUS] yt-navigate-finish fired! Scheduling AI check in 2s...');
+
       setTimeout(checkAIFocus, 2000);
     });
   }
 
   // Initial load
-  console.log('[AI-FOCUS] Content script loaded on', location.href);
+
   requestClassify();
   // Also check AI focus on initial load (with delay for title)
   setTimeout(checkAIFocus, 2000);
@@ -507,7 +507,7 @@
           }
         }, function (response) {
           if (chrome.runtime.lastError) {
-            console.error("Save error:", chrome.runtime.lastError);
+
             alert("MindGard: Could not connect to background script.");
             resetUI();
             return;
@@ -521,7 +521,7 @@
           }
         });
       } catch (err) {
-        console.error("Save error:", err);
+
         alert("Failed to save note.");
         resetUI();
       }

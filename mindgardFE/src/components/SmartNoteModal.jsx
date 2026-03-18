@@ -26,7 +26,7 @@ export default function SmartNoteModal({ isOpen, onClose }) {
             const data = await noteService.getNotes();
             setNotes(data);
         } catch (err) {
-            console.error("Failed to fetch notes:", err);
+
         } finally {
             setLoading(false);
         }
@@ -86,7 +86,7 @@ export default function SmartNoteModal({ isOpen, onClose }) {
             await fetchNotes();
             setView("list");
         } catch (err) {
-            console.error("Save failed:", err);
+
         } finally {
             setSaving(false);
         }
@@ -98,7 +98,7 @@ export default function SmartNoteModal({ isOpen, onClose }) {
             await noteService.deleteNote(note.id);
             setNotes(prev => prev.filter(n => n.id !== note.id));
         } catch (err) {
-            console.error("Delete failed:", err);
+
         }
     };
 
@@ -112,7 +112,7 @@ export default function SmartNoteModal({ isOpen, onClose }) {
             });
             await fetchNotes();
         } catch (err) {
-            console.error("Pin toggle failed:", err);
+
         }
     };
 
@@ -159,7 +159,7 @@ export default function SmartNoteModal({ isOpen, onClose }) {
                 }
             }
         } catch (err) {
-            console.error("AI enhance failed:", err);
+
         } finally {
             setAiLoading(false);
         }

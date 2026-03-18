@@ -30,7 +30,7 @@ export default function DailyQuote() {
         cachedQuote: newQuote,
       });
     } catch (error) {
-      console.error("Failed to fetch quote:", error);
+
       setQuote({
         text: "The way to get started is to quit talking and begin doing.",
         author: "Walt Disney",

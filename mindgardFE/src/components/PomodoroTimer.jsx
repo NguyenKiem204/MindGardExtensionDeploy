@@ -51,10 +51,10 @@ export default function PomodoroTimer({ onStartFocus, onComplete }) {
                     taskTitle: taskTitle || "Deep work",
                     isPartial: false, // Completed session
                   });
-                  console.log(`[PomodoroTimer] Recorded completed session: ${completedMin} minutes`);
+
                 }
               } catch (e) {
-                console.error("[PomodoroTimer] Failed to record completed session:", e);
+
               }
             })();
             // Also call onComplete callback for local storage
@@ -112,57 +112,39 @@ export default function PomodoroTimer({ onStartFocus, onComplete }) {
       setRunning(true);
       startTimeRef.current = Date.now();
       initialRemainingRef.current = remaining;
-      console.log("[PomodoroTimer] Started", {
-        mode,
-        startTime: startTimeRef.current,
-        initialRemaining: initialRemainingRef.current,
-        remaining,
-      });
       if (mode === "work" && onStartFocus) onStartFocus();
     }
   }
 
   async function pause() {
-    console.log("[PomodoroTimer] pause() called", {
-      running,
-      mode,
-      hasStartTime: !!startTimeRef.current,
-      hasInitialRemaining: !!initialRemainingRef.current,
-    });
-    
     if (running && mode === "work" && startTimeRef.current && initialRemainingRef.current) {
       // Calculate elapsed time
       const elapsedMs = Date.now() - startTimeRef.current;
       const elapsedSec = Math.floor(elapsedMs / 1000);
       const elapsedMin = Math.floor(elapsedSec / 60);
       
-      console.log(`[PomodoroTimer] Pause: elapsed=${elapsedMin} minutes (${elapsedSec} seconds), authenticated=${authService.isAuthenticated()}`);
+
       
       // Only record if >= 1 minute and user is authenticated
       if (elapsedMin >= 1 && authService.isAuthenticated()) {
         try {
           const dateISO = new Date().toISOString();
-          console.log(`[PomodoroTimer] Calling API to record partial session: ${elapsedMin} minutes`);
+
           const result = await pomodoroService.record({
             dateISO,
             durationMin: elapsedMin,
             taskTitle: taskTitle || "Deep work",
             isPartial: true,
           });
-          console.log(`[PomodoroTimer] Successfully recorded partial session:`, result);
+
         } catch (err) {
-          console.error("[PomodoroTimer] Failed to record partial session:", {
-            error: err,
-            response: err?.response?.data,
-            status: err?.response?.status,
-          });
           setError("Failed to save session: " + (err?.response?.data?.message || err?.message || "Unknown error"));
         }
       } else {
         if (elapsedMin < 1) {
-          console.log(`[PomodoroTimer] Skipped recording: ${elapsedMin} minutes (< 1 minute threshold)`);
+
         } else if (!authService.isAuthenticated()) {
-          console.log(`[PomodoroTimer] Skipped recording: user not authenticated`);
+
         }
       }
     }
@@ -172,37 +154,26 @@ export default function PomodoroTimer({ onStartFocus, onComplete }) {
   }
 
   async function reset() {
-    console.log("[PomodoroTimer] reset() called", {
-      running,
-      mode,
-      hasStartTime: !!startTimeRef.current,
-    });
-    
     // Record partial time if any
     if (running && mode === "work" && startTimeRef.current && initialRemainingRef.current) {
       const elapsedMs = Date.now() - startTimeRef.current;
       const elapsedSec = Math.floor(elapsedMs / 1000);
       const elapsedMin = Math.floor(elapsedSec / 60);
       
-      console.log(`[PomodoroTimer] Reset: elapsed=${elapsedMin} minutes, authenticated=${authService.isAuthenticated()}`);
+
       
       if (elapsedMin >= 1 && authService.isAuthenticated()) {
         try {
           const dateISO = new Date().toISOString();
-          console.log(`[PomodoroTimer] Calling API to record partial session on reset: ${elapsedMin} minutes`);
+
           const result = await pomodoroService.record({
             dateISO,
             durationMin: elapsedMin,
             taskTitle: taskTitle || "Deep work",
             isPartial: true,
           });
-          console.log(`[PomodoroTimer] Successfully recorded partial session on reset:`, result);
+
         } catch (err) {
-          console.error("[PomodoroTimer] Failed to record partial session on reset:", {
-            error: err,
-            response: err?.response?.data,
-            status: err?.response?.status,
-          });
           setError("Failed to save session: " + (err?.response?.data?.message || err?.message || "Unknown error"));
         }
       }

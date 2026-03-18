@@ -20,7 +20,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }) {
       if (onLoginSuccess) onLoginSuccess();
       onClose();
     } catch (err) {
-      console.error(err);
+
       setError(err?.message || err?.response?.data?.message || "Không thể đăng nhập bằng Google.");
     } finally {
       setIsSubmitting(false);
@@ -35,7 +35,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }) {
       if (onLoginSuccess) onLoginSuccess();
       onClose();
     } catch (err) {
-      console.error(err);
+
       setError(err?.message || err?.response?.data?.message || "Không thể đăng nhập bằng Facebook.");
     } finally {
       setIsSubmitting(false);

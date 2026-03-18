@@ -178,7 +178,7 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
           setTodayFocusMinutes(auth.user.todayFocusMinutes || auth.user.totalStudyDurationMinutes || 0);
         }
       } catch (err) {
-        console.error("Failed to load today stats:", err);
+
       }
     };
     const checkAuth = () => {
@@ -422,7 +422,7 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
 
       return true;
     } catch (e) {
-      console.error('Doc-PiP error:', e);
+
       return false;
     }
   };
@@ -524,11 +524,11 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
         try {
           video.requestPictureInPicture()
             .catch(err => {
-              console.error('PiP error:', err);
+
               setIsPipActive(false);
             });
         } catch (err) {
-          console.error('PiP error:', err);
+
           setIsPipActive(false);
         }
       }, 0);
@@ -704,7 +704,7 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
         if (settings.hideSecondsEnabled !== undefined) setHideSecondsEnabled(settings.hideSecondsEnabled);
         if (settings.notificationsEnabled !== undefined) setNotificationsEnabled(settings.notificationsEnabled);
       } catch (e) {
-        console.error("Failed to load Pomodoro settings:", e);
+
       }
     }
   }, []);
@@ -744,7 +744,7 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
             lastStorageUpdateRef.current = data.lastUpdated;
           }
         } catch (e) {
-          console.error("Bootstrapping failed:", e);
+
         }
       }
       setIsInitialized(true);
@@ -845,12 +845,6 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
       if (!endTimeRef.current) {
         endTimeRef.current = Date.now() + timeLeft * 1000;
         startTimeRef.current = Date.now(); // Track start time for partial session
-        console.log("[StudyFocusUI] Timer started", {
-          isFocusMode,
-          startTime: startTimeRef.current,
-          endTime: endTimeRef.current,
-          timeLeft,
-        });
       }
       intervalRef.current = setInterval(() => {
         const now = Date.now();
@@ -864,9 +858,8 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
 
           // Sound effect
           if (timerSoundEnabled) {
-            const chime = new Audio("https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg");
-            chime.volume = 0.5;
-            chime.play().catch(e => console.warn("Failed to play chime:", e));
+            const chime = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+            chime.play().catch(e => {});
           }
 
           // Browser notification
@@ -895,7 +888,7 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
                 // Update local today stats
                 setTodayFocusMinutes(prev => prev + completedMin);
               } catch (e) {
-                console.error("[StudyFocusUI] Failed to record completed session:", e);
+
               }
             })();
           }
@@ -944,7 +937,7 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
 
   // Debug state changes
   useEffect(() => {
-    console.log('Background state changed:', { backgroundType, backgroundUrl });
+
   }, [backgroundType, backgroundUrl]);
 
   const formatTime = (seconds) => {
@@ -974,75 +967,36 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
   };
 
   const toggleTimer = async () => {
-    console.log("[StudyFocusUI] toggleTimer() called", {
-      isRunning,
-      isFocusMode,
-      hasStartTime: !!startTimeRef.current,
-      hasEndTime: !!endTimeRef.current,
-      startTime: startTimeRef.current,
-      endTime: endTimeRef.current,
-      timeLeft,
-    });
-
     if (!isRunning) {
       endTimeRef.current = Date.now() + timeLeft * 1000;
       startTimeRef.current = Date.now();
       setIsRunning(true);
-      console.log("[StudyFocusUI] Timer started", {
-        isFocusMode,
-        startTime: startTimeRef.current,
-        endTime: endTimeRef.current,
-        timeLeft,
-      });
       if (isFocusMode && window.chrome?.storage?.local) {
         window.chrome.storage.local.set({ focusSessionActive: true });
       }
     } else {
       // Pause: record partial session if focus mode and >= 1 minute
-      console.log("[StudyFocusUI] Pausing...", {
-        isFocusMode,
-        hasStartTime: !!startTimeRef.current,
-        hasEndTime: !!endTimeRef.current,
-        isAuthenticated: authService.isAuthenticated(),
-      });
-
       if (isFocusMode && startTimeRef.current && endTimeRef.current && authService.isAuthenticated()) {
         const elapsedMs = Date.now() - startTimeRef.current;
         const elapsedSec = Math.floor(elapsedMs / 1000);
         const elapsedMin = Math.floor(elapsedSec / 60);
 
-        console.log(`[StudyFocusUI] Pause: elapsed=${elapsedMin} minutes (${elapsedSec} seconds), authenticated=${authService.isAuthenticated()}`);
-
         if (elapsedMin >= 1) {
           try {
             const dateISO = new Date().toISOString();
-            console.log(`[StudyFocusUI] Calling API to record partial session: ${elapsedMin} minutes`);
-            const result = await pomodoroService.record({
+
+            await pomodoroService.record({
               dateISO,
               durationMin: elapsedMin,
               taskTitle: taskInput || "Deep work",
               isPartial: true,
             });
-            console.log(`[StudyFocusUI] Successfully recorded partial session:`, result);
+
             // Update local today stats
             setTodayFocusMinutes(prev => prev + elapsedMin);
           } catch (err) {
-            console.error("[StudyFocusUI] Failed to record partial session:", {
-              error: err,
-              response: err?.response?.data,
-              status: err?.response?.status,
-            });
           }
-        } else {
-          console.log(`[StudyFocusUI] Skipped recording: ${elapsedMin} minutes (< 1 minute threshold)`);
         }
-      } else {
-        console.log(`[StudyFocusUI] Pause conditions not met:`, {
-          isFocusMode,
-          hasStartTime: !!startTimeRef.current,
-          hasEndTime: !!endTimeRef.current,
-          isAuthenticated: authService.isAuthenticated(),
-        });
       }
       setIsRunning(false);
       if (isFocusMode && window.chrome?.storage?.local) {
@@ -1063,7 +1017,7 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
   };
 
   const handleBackgroundSelect = (url, type) => {
-    console.log('Background selected (preloading):', { url, type });
+
 
     // Instead of setting immediately, we queue it to nextBackground
     // which triggers the invisible image/video to load.
@@ -1077,7 +1031,7 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
   };
 
   const resetToDefaultBackground = () => {
-    console.log('Resetting to default room background');
+
     setBackgroundType("room");
     setBackgroundUrl("");
     localStorage.removeItem('mindgard_background_type');
@@ -1118,7 +1072,7 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
           });
           // Update local today stats
           setTodayFocusMinutes(prev => prev + completedMin);
-        } catch (e) { console.error("Failed to record session:", e); }
+        } catch (e) {  }
       })();
     }
     if (isFocusMode && window.chrome?.storage?.local) {
@@ -1493,8 +1447,8 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
               zIndex: 1
             }}
             onError={(e) => {
-              console.log('Video error:', e);
-              console.log('Failed to load video:', backgroundUrl);
+
+
             }}
           >
             <source src={backgroundUrl} type="video/mp4" />
@@ -1563,7 +1517,7 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
                   setIsPipActive(true);
                 }
               } catch (error) {
-                console.error('Error toggling Picture-in-Picture:', error);
+
                 setIsPipActive(false);
               }
             }}
@@ -1592,7 +1546,7 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
                   else if (element.msRequestFullscreen) await element.msRequestFullscreen();
                 }
               } catch (error) {
-                console.error('Error toggling fullscreen:', error);
+
               }
             }}
             className="w-8 h-8 flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 rounded transition-colors"
@@ -1637,7 +1591,7 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
           </button>
           <button
             onClick={() => {
-              console.log('Opening scene modal...');
+
               setIsSceneModalOpen(true);
             }}
             className="px-4 py-2 bg-black/20 rounded-lg border border-white/10 hover:bg-black/50 transition"
@@ -1699,7 +1653,7 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
                     setIsPipActive(true);
                   }
                 } catch (error) {
-                  console.error('Error toggling Picture-in-Picture:', error);
+
                   setIsPipActive(false);
                 }
               }}
@@ -1745,7 +1699,7 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
                     }
                   }
                 } catch (error) {
-                  console.error('Error toggling fullscreen:', error);
+
                 }
               }}
               className="w-8 h-8 flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 rounded transition-colors"
@@ -1947,7 +1901,7 @@ export default function StudyFocusUI({ forceShowLogin = false }) {
         </button>
         <button
           onClick={() => {
-            console.log('Opening scene modal from bottom left...');
+
             setIsSceneModalOpen(true);
           }}
           className="p-4 bg-black/20 hover:bg-black/50 rounded-2xl transition border border-white/10"

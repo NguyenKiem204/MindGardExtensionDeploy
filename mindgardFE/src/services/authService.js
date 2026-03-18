@@ -32,7 +32,7 @@ const loadAuth = () => {
     }
     return parsed;
   } catch (err) {
-    console.error("Failed to read auth cache", err);
+
     return null;
   }
 };
@@ -207,7 +207,7 @@ export const authService = {
       await api.post("/auth/logout");
     } catch (err) {
       // Swallow server errors but still clear local state
-      console.warn("Logout request failed", err);
+
     } finally {
       clearAuth();
     }

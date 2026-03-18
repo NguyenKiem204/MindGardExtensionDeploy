@@ -9,7 +9,7 @@ export const subscriptionService = {
             const response = await api.get(`/v1/subscriptions/plans`);
             return response.data;
         } catch (error) {
-            console.error('Error fetching subscription plans:', error);
+
             throw error;
         }
     },
@@ -19,7 +19,7 @@ export const subscriptionService = {
             const response = await api.get(`/v1/subscriptions/me`);
             return response.data;
         } catch (error) {
-            console.error('Error fetching current subscription:', error);
+
             return null;
         }
     },
@@ -31,7 +31,7 @@ export const subscriptionService = {
             );
             return response.data;
         } catch (error) {
-            console.error('Error creating payment URL:', error);
+
             throw error;
         }
     },
@@ -41,7 +41,7 @@ export const subscriptionService = {
             const response = await api.get(`/v1/subscriptions/status/${orderCode}`);
             return response.data;
         } catch (error) {
-            console.error('Error checking payment status:', error);
+
             throw error;
         }
     }

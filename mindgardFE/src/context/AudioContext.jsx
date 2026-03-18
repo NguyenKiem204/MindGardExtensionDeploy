@@ -20,7 +20,7 @@ export const AudioProvider = ({ children }) => {
         audio.volume = globalVolume;
 
         const onEnded = () => setIsPlaying(false);
-        const onError = (e) => console.warn("[Sounds] Music playback error:", e);
+        const onError = (e) => {};
 
         audio.addEventListener("ended", onEnded);
         audio.addEventListener("error", onError);
@@ -38,7 +38,7 @@ export const AudioProvider = ({ children }) => {
         if (!audio.src) return;
 
         if (isPlaying) {
-            audio.play().catch(e => console.warn("[Sounds] Play failed:", e));
+            audio.play().catch(e => {});
         } else {
             audio.pause();
         }
@@ -79,7 +79,7 @@ export const AudioProvider = ({ children }) => {
             setActiveMusic(track);
             setIsPlaying(true);
 
-            audio.play().catch(e => console.warn("[Sounds] Play failed:", e));
+            audio.play().catch(e => {});
         }
     }, [activeMusic, globalVolume]);
 
@@ -97,7 +97,7 @@ export const AudioProvider = ({ children }) => {
                 const audio = new Audio(sound.src);
                 audio.loop = true;
                 audio.volume = 0.5 * globalVolume;
-                audio.play().catch(e => console.warn("Audio play failed", e));
+                audio.play().catch(e => {});
                 soundscapeRefs.current[sound.id] = audio;
             }
             return next;

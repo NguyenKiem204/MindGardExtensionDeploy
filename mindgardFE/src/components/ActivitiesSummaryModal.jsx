@@ -54,7 +54,7 @@ export default function ActivitiesSummaryModal({ isOpen, onClose }) {
             // Backend returns ApiResponse<List<...>> so the actual list is in res.data
             setSessions(res?.data || []);
         } catch (err) {
-            console.error("Failed to load sessions:", err);
+
             setSessions([]);
         } finally {
             setLoading(false);
@@ -66,7 +66,7 @@ export default function ActivitiesSummaryModal({ isOpen, onClose }) {
             const auth = await authService.refreshMe();
             setUserData(auth.user);
         } catch (err) {
-            console.error("Failed to load user data for summary:", err);
+
         }
     };
 
@@ -84,7 +84,7 @@ export default function ActivitiesSummaryModal({ isOpen, onClose }) {
                 setAiReview(res.data);
             }
         } catch (err) {
-            console.error("Failed to analyze sessions:", err);
+
         } finally {
             setIsAnalyzing(false);
         }

@@ -17,7 +17,7 @@ export const getLunarDateString = (date) => {
 
         return `Âm lịch: Ngày ${day} tháng ${month}${isLeap ? ' (Nhuận)' : ''}, năm ${yearName}`;
     } catch (error) {
-        console.error("Error calculating lunar date:", error);
+
         return "";
     }
 };

@@ -17,19 +17,19 @@ export default function TimerSettingsModal({ isOpen, onClose, focusTime, breakTi
 
   const handleCompleteTimer = () => {
     // Logic to complete current timer
-    console.log('Complete timer');
+
     onClose();
   };
 
   const handleRestartTimer = () => {
     // Logic to restart timer
-    console.log('Restart timer');
+
     onClose();
   };
 
   const handleAddTime = () => {
     // Logic to add 10 minutes
-    console.log('Add 10 minutes');
+
     onClose();
   };
 

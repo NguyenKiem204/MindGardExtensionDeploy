@@ -1,5 +1,7 @@
 import axios from "axios";
 
+let refreshTokenPromise = null;
+
 export const authManager = {
   isAuthenticated: () => {
     return localStorage.getItem("accessToken") !== null;
@@ -48,46 +50,52 @@ export const authManager = {
   },
 
   refreshToken: async () => {
-    try {
-      console.log("[Auth] Calling /auth/refresh (cookie/body based) ...");
-      const cachedStr = localStorage.getItem("mindgard_auth");
-      const cached = cachedStr ? JSON.parse(cachedStr) : {};
-      const rToken = localStorage.getItem("refreshToken") || cached?.refreshToken || "";
-
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_BASE_URL || "https://kiemnv.shop/api"
-        }/auth/refresh`,
-        { refreshToken: rToken },
-        {
-          withCredentials: true,
-          headers: {
-            "Content-Type": "application/json",
-            "ngrok-skip-browser-warning": "true",
-          },
-        }
-      );
-
-      if (response.data.success) {
-        const data = response.data.data;
-        const expiresInSec = data.expiresIn || Math.floor((new Date(data.expiresAt) - new Date()) / 1000);
-        console.log("[Auth] Refresh success", {
-          expiresInSec,
-          hasToken: !!data.accessToken,
-        });
-        authManager.setAccessToken(data.accessToken, expiresInSec);
-        return data.accessToken;
-      } else {
-        console.warn("[Auth] Refresh response not success", response.data);
-        throw new Error("Refresh token failed");
-      }
-    } catch (error) {
-      console.error("[Auth] Refresh token error", {
-        status: error?.response?.status,
-        data: error?.response?.data,
-      });
-      authManager.clearTokens();
-      throw error;
+    if (refreshTokenPromise) {
+      return refreshTokenPromise;
     }
+
+    refreshTokenPromise = (async () => {
+      try {
+        const cachedStr = localStorage.getItem("mindgard_auth");
+        const cached = cachedStr ? JSON.parse(cachedStr) : {};
+        const rToken = localStorage.getItem("refreshToken") || cached?.refreshToken || "";
+
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_BASE_URL || "https://kiemnv.shop/api"
+          }/auth/refresh`,
+          { refreshToken: rToken },
+          {
+            withCredentials: true,
+            headers: {
+              "Content-Type": "application/json",
+              "ngrok-skip-browser-warning": "true",
+            },
+          }
+        );
+
+        if (response.data.success) {
+          const data = response.data.data;
+          const expiresInSec = data.expiresIn || Math.floor((new Date(data.expiresAt) - new Date()) / 1000);
+          authManager.setAccessToken(data.accessToken, expiresInSec);
+          
+          // Update cached auth with new refresh token and user info
+          const cachedStrUpdate = localStorage.getItem("mindgard_auth");
+          const cachedUpdate = cachedStrUpdate ? JSON.parse(cachedStrUpdate) : {};
+          localStorage.setItem("mindgard_auth", JSON.stringify({ ...cachedUpdate, ...data }));
+
+          return data.accessToken;
+        } else {
+          throw new Error("Refresh token failed");
+        }
+      } catch (error) {
+        authManager.clearTokens();
+        throw error;
+      } finally {
+        refreshTokenPromise = null;
+      }
+    })();
+
+    return refreshTokenPromise;
   },
 };
 
@@ -100,7 +108,6 @@ export function initAuthAutoRefresh() {
       ) {
         try {
           if (authManager.shouldRefreshToken()) {
-            console.log("[Auth] visibilitychange -> refreshing token");
             await authManager.refreshToken();
           }
         } catch {
@@ -115,7 +122,6 @@ export function initAuthAutoRefresh() {
       if (!authManager.isAuthenticated()) return;
       if (authManager.shouldRefreshToken()) {
         try {
-          console.log("[Auth] interval -> refreshing token");
           await authManager.refreshToken();
         } catch {
           // ignore refresh token error
@@ -152,12 +158,8 @@ api.interceptors.request.use(
   async (config) => {
     if (authManager.isAuthenticated() && authManager.shouldRefreshToken()) {
       try {
-        console.log(
-          "[Auth] Access token near expiry; will rely on 401-triggered refresh if needed."
-        );
         await authManager.ensureValidToken();
       } catch (error) {
-        console.log(error);
       }
     }
 
@@ -165,10 +167,6 @@ api.interceptors.request.use(
     if (accessToken) {
       config.headers.Authorization = `Bearer ${accessToken}`;
     }
-    console.debug("[HTTP] Request", {
-      url: config.url,
-      hasAuth: !!accessToken,
-    });
 
     return config;
   },
@@ -188,9 +186,6 @@ api.interceptors.response.use(
       !originalRequest._retry &&
       originalRequest.url !== "/auth/refresh"
     ) {
-      console.warn("[HTTP] 401 detected; attempting refresh", {
-        url: originalRequest.url,
-      });
       originalRequest._retry = true;
       if (isRefreshing) {
         return new Promise(function (resolve, reject) {
@@ -206,57 +201,13 @@ api.interceptors.response.use(
       }
       isRefreshing = true;
       try {
-        console.log("[Auth] POST /auth/refresh (interceptor) ...");
-        const cachedStr = localStorage.getItem("mindgard_auth");
-        const cached = cachedStr ? JSON.parse(cachedStr) : {};
-        const rToken = localStorage.getItem("refreshToken") || cached?.refreshToken || "";
+        const accessToken = await authManager.refreshToken();
 
-        const refreshResponse = await axios.post(
-          `${api.defaults.baseURL}/auth/refresh`,
-          { refreshToken: rToken },
-          {
-            withCredentials: true,
-            headers: {
-              ...api.defaults.headers,
-              "ngrok-skip-browser-warning": "true",
-            },
-          }
-        );
-        if (refreshResponse.data.success) {
-          const data = refreshResponse.data.data;
-          const expiresInSec = data.expiresIn || Math.floor(
-            (new Date(data.expiresAt) - new Date()) / 1000
-          );
-          console.log("[Auth] Interceptor refresh success", {
-            expiresInSec,
-          });
-          const accessToken = data.accessToken;
-          authManager.setAccessToken(accessToken, expiresInSec);
-          api.defaults.headers.common[
-            "Authorization"
-          ] = `Bearer ${accessToken}`;
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-          processQueue(null, accessToken);
-          return api(originalRequest);
-        } else {
-          console.warn(
-            "[Auth] Interceptor refresh not success",
-            refreshResponse.data
-          );
-          authManager.clearTokens();
-          processQueue(new Error("Refresh token failed"));
-          // Dispatch event để UI update
-          if (typeof window !== "undefined") {
-            window.dispatchEvent(new CustomEvent("mindgard_auth_expired"));
-          }
-          return Promise.reject(error);
-        }
+        api.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        processQueue(null, accessToken);
+        return api(originalRequest);
       } catch (refreshError) {
-        console.error("[Auth] Interceptor refresh error", {
-          status: refreshError?.response?.status,
-          data: refreshError?.response?.data,
-        });
-        authManager.clearTokens();
         processQueue(refreshError);
         // Dispatch event để UI update
         if (typeof window !== "undefined") {
