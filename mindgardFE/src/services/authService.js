@@ -61,16 +61,10 @@ export const authService = {
   isAuthenticated: () => {
     const cached = loadAuth();
     if (!cached?.accessToken) return false;
-    // Check token expiry
-    const expiresAt = localStorage.getItem("tokenExpiresAt");
-    if (expiresAt) {
-      const remaining = parseInt(expiresAt) - Date.now();
-      if (remaining <= 0) {
-        // Token expired, clear auth
-        clearAuth();
-        return false;
-      }
-    }
+    
+    // We DO NOT check expiration and clearAuth synchronously here.
+    // If the token is expired, we let the API call proceed so the axios interceptor 
+    // can catch the 401 error and automatically refresh the token using HttpOnly cookies.
     return true;
   },
 

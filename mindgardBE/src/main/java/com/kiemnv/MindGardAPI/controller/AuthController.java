@@ -70,14 +70,20 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    @Operation(summary = "Refresh access token", description = "Rotate refresh token from HttpOnly cookie and return a new access token. Requires refreshToken cookie.")
+    @Operation(summary = "Refresh access token", description = "Rotate refresh token from HttpOnly cookie or body and return a new access token.")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Token refreshed successfully",
             content = @Content(schema = @Schema(implementation = com.kiemnv.MindGardAPI.dto.response.ApiResponse.class)))
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Refresh token cookie missing")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Refresh token missing")
     public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(HttpServletRequest request,
+                                                                  @RequestBody(required = false) RefreshTokenRequest bodyRequest,
                                                                   HttpServletResponse response) {
         String refreshToken = null;
-        if (request.getCookies() != null) {
+
+        if (bodyRequest != null && bodyRequest.getRefreshToken() != null && !bodyRequest.getRefreshToken().isEmpty()) {
+            refreshToken = bodyRequest.getRefreshToken();
+        }
+
+        if (refreshToken == null && request.getCookies() != null) {
             for (Cookie cookie : request.getCookies()) {
                 if ("refreshToken".equals(cookie.getName())) {
                     refreshToken = cookie.getValue();
@@ -87,7 +93,7 @@ public class AuthController {
         }
 
         if (refreshToken == null) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("Refresh token not found in cookie", 400));
+            return ResponseEntity.badRequest().body(ApiResponse.error("Refresh token not found in cookie or body", 400));
         }
 
         AuthResponse authResponse = authService.refreshToken(refreshToken, response);

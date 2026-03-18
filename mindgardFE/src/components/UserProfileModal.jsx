@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { X, Gift, User, Search, Settings, Users, ExternalLink, Grid3x3, Brain, LogIn, LogOut, Loader2 } from "lucide-react";
+import { X, Gift, User, Search, Settings, Users, ExternalLink, Grid3x3, Brain, LogIn, LogOut, Loader2, Gamepad2 } from "lucide-react";
 import { authService } from "../services/authService";
 import PublicProfileModal from "./PublicProfileModal";
 import FriendsModal from "./FriendsModal";
@@ -225,8 +225,6 @@ export default function UserProfileModal({ isOpen, onClose, userName = "kiem", a
       disabled: !isAuthenticated
     },
     { icon: Brain, label: "Focus mode", hasChevron: false },
-    { icon: Search, label: "Find study room", hasChevron: true },
-    { icon: Settings, label: "App settings", hasChevron: true },
     {
       icon: Users,
       label: "Manage friends",
@@ -244,6 +242,14 @@ export default function UserProfileModal({ isOpen, onClose, userName = "kiem", a
     { icon: null, label: "Discord", hasExternalLink: true, customIcon: "discord", dividerBefore: true },
     { icon: null, label: "Chrome extension", hasExternalLink: true, customIcon: "puzzle" },
     { icon: Grid3x3, label: "Our apps", hasChevron: true },
+    { 
+      icon: Gamepad2, 
+      label: "Game luyện tập trung", 
+      hasExternalLink: true, 
+      action: () => window.open("https://mind-gard-game.vercel.app/", "_blank") 
+    },
+    { icon: Search, label: "Find study room", hasChevron: true, dividerBefore: true },
+    { icon: Settings, label: "App settings", hasChevron: true },
     { ...authMenuItem, dividerBefore: true, hasChevron: false },
   ];
 

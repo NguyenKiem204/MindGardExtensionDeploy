@@ -49,11 +49,15 @@ export const authManager = {
 
   refreshToken: async () => {
     try {
-      console.log("[Auth] Calling /auth/refresh-token (cookie based) ...");
+      console.log("[Auth] Calling /auth/refresh (cookie/body based) ...");
+      const cachedStr = localStorage.getItem("mindgard_auth");
+      const cached = cachedStr ? JSON.parse(cachedStr) : {};
+      const rToken = localStorage.getItem("refreshToken") || cached?.refreshToken || "";
+
       const response = await axios.post(
         `${import.meta.env.VITE_API_BASE_URL || "https://kiemnv.shop/api"
-        }/auth/refresh-token`,
-        {},
+        }/auth/refresh`,
+        { refreshToken: rToken },
         {
           withCredentials: true,
           headers: {
@@ -182,7 +186,7 @@ api.interceptors.response.use(
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
-      originalRequest.url !== "/auth/refresh-token"
+      originalRequest.url !== "/auth/refresh"
     ) {
       console.warn("[HTTP] 401 detected; attempting refresh", {
         url: originalRequest.url,
@@ -202,10 +206,14 @@ api.interceptors.response.use(
       }
       isRefreshing = true;
       try {
-        console.log("[Auth] POST /auth/refresh-token (interceptor) ...");
+        console.log("[Auth] POST /auth/refresh (interceptor) ...");
+        const cachedStr = localStorage.getItem("mindgard_auth");
+        const cached = cachedStr ? JSON.parse(cachedStr) : {};
+        const rToken = localStorage.getItem("refreshToken") || cached?.refreshToken || "";
+
         const refreshResponse = await axios.post(
-          `${api.defaults.baseURL}/auth/refresh-token`,
-          {},
+          `${api.defaults.baseURL}/auth/refresh`,
+          { refreshToken: rToken },
           {
             withCredentials: true,
             headers: {
