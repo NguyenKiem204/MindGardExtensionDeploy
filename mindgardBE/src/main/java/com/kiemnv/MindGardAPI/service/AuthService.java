@@ -283,6 +283,8 @@ public class AuthService {
                 maxAgeSeconds);
 
         response.addHeader("Set-Cookie", cookieValue);
+        // ALWAYS explicitly clear the old legacy cookie path when a new session/token is issued
+        response.addHeader("Set-Cookie", "refreshToken=; Path=/api/auth/refresh; HttpOnly; Secure; Max-Age=0; SameSite=Strict");
     }
 
     public void clearRefreshTokenCookie(HttpServletResponse response) {
